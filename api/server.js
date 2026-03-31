@@ -90,6 +90,17 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// ── DB diagnostic (temp) ──────────────────────────────
+app.get('/api/dbtest', async (req, res) => {
+  const pool = require('./db/connection');
+  try {
+    const r = await pool.query('SELECT NOW() as time, current_database() as db');
+    res.json({ ok: true, time: r.rows[0].time, db: r.rows[0].db });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message, code: err.code });
+  }
+});
+
 // ── 404 handler ───────────────────────────────────────
 app.use('/api/*', (req, res) => {
   res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` });
