@@ -95,11 +95,17 @@ app.get('/api/dbtest', async (req, res) => {
   const pool = require('./db/connection');
   const bcrypt = require('bcryptjs');
   try {
-    const r = await pool.query('SELECT id, email, role, is_active, LEFT(password_hash,20) as hash_preview FROM users LIMIT 5');
-    const bcryptTest = await bcrypt.compare('fingers007', '$2a$12$placeholder000000000000000000000000000000000000000000000');
-    res.json({ ok: true, users: r.rows, bcrypt_ok: true });
+    // Replicate exact login query
+    const result = await pool.query(
+      'SELECT * FROM users WHERE email = $1 AND is_active = true',
+      ['admin@vtos.local']
+    );
+    if (result.rowCount === 0) return res.json({ ok: false, reason: 'user not found' });
+    const user = result.rows[0];
+    const valid = await bcrypt.compare('fingers007', user.password_hash);
+    res.json({ ok: true, found: true, valid, role: user.role, hash_len: user.password_hash.length });
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message, code: err.code, stack: err.stack?.slice(0,300) });
+    res.status(500).json({ ok: false, error: err.message, code: err.code, stack: err.stack?.slice(0,500) });
   }
 });
 
