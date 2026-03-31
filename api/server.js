@@ -90,29 +90,29 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// ── DB diagnostic (temp) ──────────────────────────────
-app.get('/api/dbtest', async (req, res) => {
-  const pool = require('./db/connection');
+// ── Login diagnostic (temp) — mirrors exact login route ──
+app.post('/api/logintest', async (req, res) => {
+  const pool   = require('./db/connection');
   const bcrypt = require('bcryptjs');
+  const jwt    = require('jsonwebtoken');
+  const { email, password } = req.body;
   try {
-    // Replicate exact login query
     const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1 AND is_active = true',
-      ['admin@vtos.local']
+      'SELECT * FROM users WHERE email = $1 AND is_active = true', [email]
     );
-    if (result.rowCount === 0) return res.json({ ok: false, reason: 'user not found' });
-    const user = result.rows[0];
-    const valid = await bcrypt.compare('fingers007', user.password_hash);
-    const jwt = require('jsonwebtoken');
-    const secret = process.env.JWT_SECRET;
-    let tokenOk = false, tokenErr = null;
-    try {
-      jwt.sign({ id: user.id }, secret, { expiresIn: '7d' });
-      tokenOk = true;
-    } catch(e) { tokenErr = e.message; }
-    res.json({ ok: true, found: true, valid, role: user.role, hash_len: user.password_hash.length, secret_len: (secret||'').length, tokenOk, tokenErr });
+    if (result.rowCount === 0) return res.json({ step: 'query', found: false });
+    const user  = result.rows[0];
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) return res.json({ step: 'bcrypt', valid: false });
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role, name: user.first_name },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+    const { password_hash, ...safeUser } = user;
+    res.json({ step: 'done', token: token.slice(0,20) + '...', user: safeUser });
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message, code: err.code, stack: err.stack?.slice(0,500) });
+    res.status(500).json({ step: 'catch', error: err.message, code: err.code, stack: err.stack?.slice(0,600) });
   }
 });
 
