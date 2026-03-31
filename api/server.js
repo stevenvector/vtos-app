@@ -103,7 +103,14 @@ app.get('/api/dbtest', async (req, res) => {
     if (result.rowCount === 0) return res.json({ ok: false, reason: 'user not found' });
     const user = result.rows[0];
     const valid = await bcrypt.compare('fingers007', user.password_hash);
-    res.json({ ok: true, found: true, valid, role: user.role, hash_len: user.password_hash.length });
+    const jwt = require('jsonwebtoken');
+    const secret = process.env.JWT_SECRET;
+    let tokenOk = false, tokenErr = null;
+    try {
+      jwt.sign({ id: user.id }, secret, { expiresIn: '7d' });
+      tokenOk = true;
+    } catch(e) { tokenErr = e.message; }
+    res.json({ ok: true, found: true, valid, role: user.role, hash_len: user.password_hash.length, secret_len: (secret||'').length, tokenOk, tokenErr });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message, code: err.code, stack: err.stack?.slice(0,500) });
   }
