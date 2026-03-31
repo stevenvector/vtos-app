@@ -16,6 +16,9 @@ const adminRoutes     = require('./routes/admin');
 const app  = express();
 const PORT = process.env.PORT || 4000;
 
+// ── Trust Vercel/proxy X-Forwarded-For (required for rate-limit on serverless) ──
+app.set('trust proxy', 1);
+
 // ── Security headers ──────────────────────────────────
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
