@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VTOS | Vector Online Solutions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Orbitron:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ========== NAVIGATION ========== -->
+  <nav id="navbar">
+    <div class="nav-container">
+      <a href="#hero" class="nav-logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="20,4 36,36 20,28 4,36" fill="none" stroke="#39FF14" stroke-width="2"/>
+            <polygon points="20,10 32,34 20,27 8,34" fill="#1a1a2e" stroke="#1E6FD9" stroke-width="1.5"/>
+            <circle cx="20" cy="22" r="5" fill="#1E6FD9" stroke="#39FF14" stroke-width="1"/>
+            <polygon points="18,21 23,22 18,25" fill="#39FF14"/>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <span class="logo-vtos">VTOS</span>
+          <span class="logo-full">Vector Online Solutions</span>
+        </div>
+      </a>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#services">Services</a></li>
+        <li><a href="#portfolio">Portfolio</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#courier">Courier-In</a></li>
+        <li><a href="#contact">Contact</a></li>
+        <li><a href="#quote" class="nav-cta">Get a Quote</a></li>
+        <li><a href="#" class="nav-login" onclick="openModal('loginModal')">Login</a></li>
+      </ul>
+      <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ========== HERO ========== -->
+  <section id="hero">
+    <div class="hero-bg">
+      <div class="circuit-lines"></div>
+      <div class="grid-overlay"></div>
+    </div>
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        Enterprise-Grade Digital Solutions
+      </div>
+      <h1 class="hero-title">
+        <span class="gradient-text">Elevate Your</span><br/>
+        Digital Presence
+      </h1>
+      <p class="hero-sub">
+        From personal websites to enterprise web applications — VTOS delivers cutting-edge solutions
+        with flexible hosting, expert development, and unmatched technical support.
+      </p>
+      <div class="hero-actions">
+        <a href="#quote" class="btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          Request a Quote
+        </a>
+        <a href="#portfolio" class="btn-secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          View Our Work
+        </a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-num">50+</span>
+          <span class="stat-label">Projects Delivered</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-num">R3K</span>
+          <span class="stat-label">Starting Price</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-num">24/7</span>
+          <span class="stat-label">Support Available</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="hero-card glass-card">
+        <div class="card-header">
+          <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+          <span class="card-title">vtos-platform.app</span>
+        </div>
+        <div class="card-body">
+          <div class="code-line"><span class="kw">const</span> solution = <span class="fn">VTOS</span>();</div>
+          <div class="code-line"><span class="cm">// Powering your business</span></div>
+          <div class="code-line"><span class="kw">return</span> {</div>
+          <div class="code-line indent"><span class="str">webDev</span>: <span class="val">true</span>,</div>
+          <div class="code-line indent"><span class="str">hosting</span>: <span class="val">"flexible"</span>,</div>
+          <div class="code-line indent"><span class="str">support</span>: <span class="val">"24/7"</span>,</div>
+          <div class="code-line indent"><span class="str">pcServices</span>: <span class="val">true</span></div>
+          <div class="code-line">};</div>
+        </div>
+      </div>
+      <div class="hero-float-badge badge-1">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#39FF14" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        Responsive Design
+      </div>
+      <div class="hero-float-badge badge-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E6FD9" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        Secure Hosting
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== SERVICES ========== -->
+  <section id="services">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-tag">What We Do</span>
+        <h2>Comprehensive <span class="gradient-text">Digital Services</span></h2>
+        <p>From concept to deployment — and every pixel in between. We build solutions that scale with your ambition.</p>
+      </div>
+
+      <div class="services-grid">
+        <!-- Web Development -->
+        <div class="service-card" data-aos="fade-up">
+          <div class="service-icon web">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M6 9l2 3 4-5 3 4 2-2"/></svg>
+          </div>
+          <h3>Business Websites</h3>
+          <p>Professional, responsive websites that convert visitors into customers. Tailored to your brand and optimised for search engines.</p>
+          <ul class="service-features">
+            <li>Custom responsive design</li>
+            <li>SEO optimisation</li>
+            <li>CMS integration</li>
+            <li>Domain & email setup</li>
+          </ul>
+          <div class="service-price">From <strong>R3,000</strong></div>
+        </div>
+
+        <!-- Web Applications -->
+        <div class="service-card featured" data-aos="fade-up" data-aos-delay="100">
+          <div class="featured-tag">Most Popular</div>
+          <div class="service-icon app">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>
+          </div>
+          <h3>Web Applications</h3>
+          <p>Powerful custom web apps to manage bookings, sales, inventory, client portals, and complete business workflows.</p>
+          <ul class="service-features">
+            <li>Custom dashboards & portals</li>
+            <li>Booking & CRM systems</li>
+            <li>Inventory management</li>
+            <li>API integrations</li>
+          </ul>
+          <div class="service-price">From <strong>R6,000</strong></div>
+        </div>
+
+        <!-- Hosting -->
+        <div class="service-card" data-aos="fade-up" data-aos-delay="150">
+          <div class="service-icon hosting">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="5" rx="1"/><rect x="2" y="11" width="20" height="5" rx="1"/><rect x="2" y="19" width="20" height="2" rx="1"/><circle cx="6" cy="5.5" r="1" fill="currentColor"/><circle cx="6" cy="13.5" r="1" fill="currentColor"/></svg>
+          </div>
+          <h3>Flexible Hosting</h3>
+          <p>Pay-as-you-use hosting that grows with your business. No lock-in contracts, full domain management, and enterprise security.</p>
+          <ul class="service-features">
+            <li>Pay-as-you-use model</li>
+            <li>Domain registration & management</li>
+            <li>Email hosting from R100/m</li>
+            <li>10 accounts + 1GB storage (scalable)</li>
+          </ul>
+          <div class="service-price">From <strong>R100/month</strong></div>
+        </div>
+
+        <!-- PC Building -->
+        <div class="service-card" data-aos="fade-up" data-aos-delay="200">
+          <div class="service-icon pc">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="14" height="16" rx="1"/><rect x="6" y="7" width="6" height="4" rx="0.5"/><rect x="6" y="13" width="2" height="2" rx="0.5"/><rect x="10" y="13" width="2" height="2" rx="0.5"/><path d="M16 8h4a1 1 0 011 1v6a1 1 0 01-1 1h-4"/></svg>
+          </div>
+          <h3>Custom PC Builds</h3>
+          <p>Purpose-built workstations, gaming rigs, and enterprise servers. Every build is optimised for performance and longevity.</p>
+          <ul class="service-features">
+            <li>Gaming & workstation builds</li>
+            <li>Component sourcing & advice</li>
+            <li>BIOS optimisation & benchmarking</li>
+            <li>Cable management & aesthetics</li>
+          </ul>
+          <div class="service-price">Quote on request</div>
+        </div>
+
+        <!-- Diagnostics & Repairs -->
+        <div class="service-card" data-aos="fade-up" data-aos-delay="250">
+          <div class="service-icon repair">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+          </div>
+          <h3>Diagnostics & Repairs</h3>
+          <p>Expert hardware diagnosis and repair for desktops, laptops, and peripherals. Fast turnaround with transparent reporting.</p>
+          <ul class="service-features">
+            <li>Full hardware diagnostics</li>
+            <li>Virus & malware removal</li>
+            <li>Data recovery services</li>
+            <li>OS reinstalls & optimisation</li>
+          </ul>
+          <div class="service-price">Quote on request</div>
+        </div>
+
+        <!-- Courier-In Service -->
+        <div class="service-card courier-highlight" data-aos="fade-up" data-aos-delay="300">
+          <div class="service-icon courier">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          </div>
+          <h3>Courier-In Repairs</h3>
+          <p>Can't bring your hardware to us? Send it in. Our secure courier-in service handles the logistics — you just book online.</p>
+          <ul class="service-features">
+            <li>Online booking & tracking</li>
+            <li>Secure packaging guidance</li>
+            <li>Nationwide collection</li>
+            <li>Live repair status updates</li>
+          </ul>
+          <a href="#courier" class="service-cta">Book Courier-In →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== FREE CONSULTATION BANNER ========== -->
+  <section id="consult-banner">
+    <div class="banner-content">
+      <div class="banner-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#39FF14" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      </div>
+      <div>
+        <h3>Free 15–20 Minute Consultation</h3>
+        <p>Not sure what you need? Let's talk. No obligation, no pressure — just honest advice on the best solution for your business.</p>
+      </div>
+      <a href="#contact" class="btn-primary">Book Now</a>
+    </div>
+  </section>
+
+  <!-- ========== PORTFOLIO ========== -->
+  <section id="portfolio">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-tag">Our Work</span>
+        <h2>Projects We're <span class="gradient-text">Proud Of</span></h2>
+        <p>A curated selection of websites and applications we've built for our clients.</p>
+      </div>
+
+      <div class="portfolio-filter">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="website">Websites</button>
+        <button class="filter-btn" data-filter="webapp">Web Apps</button>
+        <button class="filter-btn" data-filter="ecommerce">E-Commerce</button>
+      </div>
+
+      <div class="portfolio-grid" id="portfolioGrid">
+        <!-- Portfolio items injected by JS -->
+        <div class="portfolio-item website" data-aos="fade-up">
+          <div class="portfolio-img placeholder-img">
+            <div class="placeholder-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#39FF14" stroke-width="1.5" width="32" height="32"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+              <span>Business Website</span>
+            </div>
+          </div>
+          <div class="portfolio-info">
+            <span class="portfolio-tag">Website</span>
+            <h4>Corporate Presence Site</h4>
+            <p>Full responsive business site with CMS and contact integration.</p>
+            <a href="#" class="portfolio-link" target="_blank">View Project →</a>
+          </div>
+        </div>
+
+        <div class="portfolio-item webapp" data-aos="fade-up" data-aos-delay="100">
+          <div class="portfolio-img placeholder-img blue-tint">
+            <div class="placeholder-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#1E6FD9" stroke-width="1.5" width="32" height="32"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>
+              <span>Web Application</span>
+            </div>
+          </div>
+          <div class="portfolio-info">
+            <span class="portfolio-tag webapp-tag">Web App</span>
+            <h4>Client Management Portal</h4>
+            <p>Custom CRM with invoicing, bookings, and reporting dashboard.</p>
+            <a href="#" class="portfolio-link" target="_blank">View Project →</a>
+          </div>
+        </div>
+
+        <div class="portfolio-item ecommerce" data-aos="fade-up" data-aos-delay="200">
+          <div class="portfolio-img placeholder-img green-tint">
+            <div class="placeholder-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#39FF14" stroke-width="1.5" width="32" height="32"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+              <span>E-Commerce</span>
+            </div>
+          </div>
+          <div class="portfolio-info">
+            <span class="portfolio-tag ecom-tag">E-Commerce</span>
+            <h4>Online Retail Store</h4>
+            <p>Full product catalogue, cart, payments, and order management.</p>
+            <a href="#" class="portfolio-link" target="_blank">View Project →</a>
+          </div>
+        </div>
+
+        <div class="portfolio-item website" data-aos="fade-up" data-aos-delay="100">
+          <div class="portfolio-img placeholder-img purple-tint">
+            <div class="placeholder-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#9b59b6" stroke-width="1.5" width="32" height="32"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              <span>Landing Page</span>
+            </div>
+          </div>
+          <div class="portfolio-info">
+            <span class="portfolio-tag">Website</span>
+            <h4>Real Estate Showcase</h4>
+            <p>Premium property listings site with virtual tour integration.</p>
+            <a href="#" class="portfolio-link" target="_blank">View Project →</a>
+          </div>
+        </div>
+
+        <div class="portfolio-item webapp" data-aos="fade-up" data-aos-delay="200">
+          <div class="portfolio-img placeholder-img orange-tint">
+            <div class="placeholder-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#e67e22" stroke-width="1.5" width="32" height="32"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span>Booking System</span>
+            </div>
+          </div>
+          <div class="portfolio-info">
+            <span class="portfolio-tag webapp-tag">Web App</span>
+            <h4>Appointment Booking System</h4>
+            <p>Online scheduling with automated reminders and staff management.</p>
+            <a href="#" class="portfolio-link" target="_blank">View Project →</a>
+          </div>
+        </div>
+
+        <div class="portfolio-add-card" id="portfolioAddCard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#39FF14" stroke-width="1.5" width="40" height="40"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          <p>More projects added regularly</p>
+          <span>Managed via admin panel</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== PRICING ========== -->
+  <section id="pricing">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-tag">Transparent Pricing</span>
+        <h2>Simple, <span class="gradient-text">Honest Pricing</span></h2>
+        <p>No hidden fees. Pricing scales with complexity — get a precise quote after your free consultation.</p>
+      </div>
+
+      <div class="pricing-grid">
+        <div class="pricing-card" data-aos="fade-up">
+          <div class="pricing-tier">Starter</div>
+          <div class="pricing-amount">R3,000 <span>once-off</span></div>
+          <p class="pricing-desc">Perfect for small businesses needing a professional online presence.</p>
+          <ul class="pricing-features">
+            <li><span class="check">✓</span> Business website (up to 5 pages)</li>
+            <li><span class="check">✓</span> Responsive design</li>
+            <li><span class="check">✓</span> Contact form</li>
+            <li><span class="check">✓</span> SEO basics</li>
+            <li><span class="check">✓</span> Social media links</li>
+            <li class="muted"><span>–</span> Web application features</li>
+            <li class="muted"><span>–</span> CRM / booking system</li>
+          </ul>
+          <a href="#quote" class="btn-outline-green">Get Started</a>
+        </div>
+
+        <div class="pricing-card featured-price" data-aos="fade-up" data-aos-delay="100">
+          <div class="pricing-badge">Most Popular</div>
+          <div class="pricing-tier">Business</div>
+          <div class="pricing-amount">R6,000 <span>once-off</span></div>
+          <p class="pricing-desc">Full-featured web application to run and automate your business operations.</p>
+          <ul class="pricing-features">
+            <li><span class="check">✓</span> Everything in Starter</li>
+            <li><span class="check">✓</span> Custom web application</li>
+            <li><span class="check">✓</span> User login & portals</li>
+            <li><span class="check">✓</span> Booking / CRM / inventory</li>
+            <li><span class="check">✓</span> Admin dashboard</li>
+            <li><span class="check">✓</span> API integrations</li>
+            <li class="muted"><span>–</span> Enterprise SLA & support</li>
+          </ul>
+          <a href="#quote" class="btn-primary">Get Started</a>
+        </div>
+
+        <div class="pricing-card" data-aos="fade-up" data-aos-delay="200">
+          <div class="pricing-tier">Enterprise</div>
+          <div class="pricing-amount">Custom <span>quote</span></div>
+          <p class="pricing-desc">Bespoke solutions for larger organisations with complex requirements.</p>
+          <ul class="pricing-features">
+            <li><span class="check">✓</span> Everything in Business</li>
+            <li><span class="check">✓</span> Multi-user / role management</li>
+            <li><span class="check">✓</span> Advanced reporting & analytics</li>
+            <li><span class="check">✓</span> Custom integrations</li>
+            <li><span class="check">✓</span> Dedicated support SLA</li>
+            <li><span class="check">✓</span> Scalable hosting plan</li>
+            <li><span class="check">✓</span> Ongoing maintenance</li>
+          </ul>
+          <a href="#quote" class="btn-outline-green">Contact Us</a>
+        </div>
+      </div>
+
+      <div class="hosting-addons">
+        <h3>Hosting & Domain Add-ons</h3>
+        <div class="addons-grid">
+          <div class="addon-card">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#39FF14" stroke-width="1.5" width="24" height="24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+            <div><strong>Domain Registration</strong><p>Registered to your business name, full control guaranteed</p></div>
+          </div>
+          <div class="addon-card">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#1E6FD9" stroke-width="1.5" width="24" height="24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <div><strong>Email Hosting</strong><p>From R100/month — 10 accounts, 1GB storage per account (scalable)</p></div>
+          </div>
+          <div class="addon-card">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#39FF14" stroke-width="1.5" width="24" height="24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <div><strong>Pay-As-You-Use Hosting</strong><p>No locked-in contracts — scale up or down as your needs change</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== COURIER-IN ========== -->
+  <section id="courier">
+    <div class="section-container">
+      <div class="courier-wrapper">
+        <div class="courier-content">
+          <span class="section-tag">PC Services</span>
+          <h2>Can't Come to Us? <span class="gradient-text">Send It In.</span></h2>
+          <p>Our Courier-In service lets you send your hardware directly to our workshop — no matter where you are in South Africa. We handle the rest.</p>
+          <div class="courier-steps">
+            <div class="step">
+              <div class="step-num">01</div>
+              <div>
+                <strong>Book Online</strong>
+                <p>Log in or create an account and fill in your shipment details.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">02</div>
+              <div>
+                <strong>Send Your Hardware</strong>
+                <p>We provide packaging guidance and a tracked courier collection.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">03</div>
+              <div>
+                <strong>We Diagnose & Fix</strong>
+                <p>You receive a full report and approval before any work begins.</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">04</div>
+              <div>
+                <strong>Returned to You</strong>
+                <p>Your repaired hardware shipped back, tracked every step of the way.</p>
+              </div>
+            </div>
+          </div>
+          <div class="courier-actions">
+            <button class="btn-primary" onclick="openModal('loginModal')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+              Book Courier-In
+            </button>
+            <a href="#contact" class="btn-secondary">Ask a Question</a>
+          </div>
+        </div>
+        <div class="courier-visual">
+          <div class="courier-card glass-card">
+            <div class="courier-icon-wrap">
+              <svg viewBox="0 0 64 64" fill="none" width="64" height="64">
+                <rect x="2" y="14" width="40" height="28" rx="2" fill="none" stroke="#39FF14" stroke-width="2"/>
+                <path d="M42 22h12l8 8v12h-20V22z" fill="none" stroke="#1E6FD9" stroke-width="2"/>
+                <circle cx="14" cy="46" r="6" fill="none" stroke="#39FF14" stroke-width="2"/>
+                <circle cx="50" cy="46" r="6" fill="none" stroke="#1E6FD9" stroke-width="2"/>
+              </svg>
+            </div>
+            <div class="courier-status">
+              <div class="status-row active"><span class="status-dot"></span>Pickup Scheduled</div>
+              <div class="status-row"><span class="status-dot inactive"></span>In Transit</div>
+              <div class="status-row"><span class="status-dot inactive"></span>Diagnostics</div>
+              <div class="status-row"><span class="status-dot inactive"></span>Ready to Return</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== QUOTE FORM ========== -->
+  <section id="quote">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-tag">Sales Enquiry</span>
+        <h2>Request a <span class="gradient-text">Free Quote</span></h2>
+        <p>Tell us about your project. We'll respond within 24 hours with a tailored proposal.</p>
+      </div>
+      <div class="quote-wrapper">
+        <form class="quote-form" id="quoteForm" onsubmit="submitQuote(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="q-name">Full Name *</label>
+              <input type="text" id="q-name" placeholder="Jane Smith" required />
+            </div>
+            <div class="form-group">
+              <label for="q-company">Company / Business</label>
+              <input type="text" id="q-company" placeholder="Acme Corp (optional)" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="q-email">Email Address *</label>
+              <input type="email" id="q-email" placeholder="jane@example.com" required />
+            </div>
+            <div class="form-group">
+              <label for="q-phone">Phone / WhatsApp</label>
+              <input type="tel" id="q-phone" placeholder="+27 XX XXX XXXX" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="q-service">Service Required *</label>
+            <select id="q-service" required>
+              <option value="" disabled selected>Select a service...</option>
+              <option>Business Website</option>
+              <option>Web Application / Business System</option>
+              <option>E-Commerce Store</option>
+              <option>Hosting & Domain Setup</option>
+              <option>Email Hosting</option>
+              <option>Custom PC Build</option>
+              <option>PC Diagnostics & Repair</option>
+              <option>Courier-In Repair</option>
+              <option>Other / Not Sure Yet</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="q-budget">Approximate Budget</label>
+            <select id="q-budget">
+              <option value="" disabled selected>Select a range...</option>
+              <option>Under R3,000</option>
+              <option>R3,000 – R6,000</option>
+              <option>R6,000 – R15,000</option>
+              <option>R15,000 – R50,000</option>
+              <option>R50,000+</option>
+              <option>Not sure yet</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="q-desc">Project Description *</label>
+            <textarea id="q-desc" rows="5" placeholder="Describe your project, current challenges, and what you'd like to achieve..." required></textarea>
+          </div>
+          <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="q-consult" />
+              <span class="checkbox-custom"></span>
+              I'd like a free 15–20 minute consultation call
+            </label>
+          </div>
+          <button type="submit" class="btn-primary btn-full">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Submit Quote Request
+          </button>
+        </form>
+        <div class="quote-sent hidden" id="quoteSent">
+          <div class="success-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#39FF14" stroke-width="2" width="48" height="48"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <h3>Quote Request Sent!</h3>
+          <p>Thank you — we'll review your request and get back to you within 24 hours. Keep an eye on your inbox!</p>
+          <a href="#contact" class="btn-secondary">Get in Touch Directly</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== CONTACT ========== -->
+  <section id="contact">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-tag">Get In Touch</span>
+        <h2>Let's <span class="gradient-text">Connect</span></h2>
+        <p>Ready to start your project or just have questions? Reach us through any of the channels below.</p>
+      </div>
+
+      <div class="contact-grid">
+        <div class="contact-card whatsapp-card" data-aos="fade-up">
+          <div class="contact-icon wa-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          </div>
+          <h4>WhatsApp Us</h4>
+          <p>Fastest way to reach us. Chat with our team directly.</p>
+          <a href="https://wa.me/27734185106" target="_blank" class="contact-link wa-link">
+            Message on WhatsApp →
+          </a>
+        </div>
+
+        <div class="contact-card" data-aos="fade-up" data-aos-delay="100">
+          <div class="contact-icon email-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </div>
+          <h4>Email Us</h4>
+          <p>Send us your enquiry and we'll respond within 24 hours.</p>
+          <a href="mailto:vtechonlinesolutions@gmail.com" class="contact-link">vtechonlinesolutions@gmail.com →</a>
+        </div>
+
+        <div class="contact-card" data-aos="fade-up" data-aos-delay="200">
+          <div class="contact-icon phone-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.09 8.81 19.79 19.79 0 01.12 2.18 2 2 0 012.11 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+          </div>
+          <h4>Call Us</h4>
+          <p>Available during business hours for consultations and support.</p>
+          <a href="tel:+27734185106" class="contact-link">+27 73 418 5106 →</a>
+        </div>
+
+        <div class="contact-card" data-aos="fade-up" data-aos-delay="300">
+          <div class="contact-icon consult-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <h4>Book a Consultation</h4>
+          <p>Free 15–20 minute call to discuss your project needs.</p>
+          <a href="#quote" class="contact-link">Schedule Now →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== FOOTER ========== -->
+  <footer id="footer">
+    <div class="footer-container">
+      <div class="footer-brand">
+        <div class="nav-logo" style="margin-bottom:1rem">
+          <div class="logo-icon">
+            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <polygon points="20,4 36,36 20,28 4,36" fill="none" stroke="#39FF14" stroke-width="2"/>
+              <polygon points="20,10 32,34 20,27 8,34" fill="#1a1a2e" stroke="#1E6FD9" stroke-width="1.5"/>
+              <circle cx="20" cy="22" r="5" fill="#1E6FD9" stroke="#39FF14" stroke-width="1"/>
+              <polygon points="18,21 23,22 18,25" fill="#39FF14"/>
+            </svg>
+          </div>
+          <div class="logo-text">
+            <span class="logo-vtos">VTOS</span>
+            <span class="logo-full">Vector Online Solutions</span>
+          </div>
+        </div>
+        <p>Elevating businesses through intelligent digital solutions — from professional websites to enterprise web applications and expert PC services.</p>
+        <div class="footer-social">
+          <a href="https://wa.me/27734185106" target="_blank" class="social-btn wa" aria-label="WhatsApp">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          </a>
+          <a href="mailto:vtechonlinesolutions@gmail.com" class="social-btn email-s" aria-label="Email">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </a>
+        </div>
+      </div>
+
+      <div class="footer-links">
+        <div class="footer-col">
+          <h5>Services</h5>
+          <a href="#services">Business Websites</a>
+          <a href="#services">Web Applications</a>
+          <a href="#services">Hosting & Domains</a>
+          <a href="#services">Email Hosting</a>
+          <a href="#services">PC Building</a>
+          <a href="#services">Diagnostics & Repairs</a>
+          <a href="#courier">Courier-In Service</a>
+        </div>
+        <div class="footer-col">
+          <h5>Company</h5>
+          <a href="#portfolio">Our Portfolio</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#quote">Get a Quote</a>
+          <a href="#contact">Contact Us</a>
+          <a href="#" onclick="openModal('loginModal')">Client Login</a>
+        </div>
+        <div class="footer-col">
+          <h5>Get Started</h5>
+          <a href="#quote">Free Consultation</a>
+          <a href="#quote">Request a Quote</a>
+          <a href="#courier">Courier-In Booking</a>
+          <a href="https://wa.me/27734185106" target="_blank">WhatsApp Us</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2024 Vector Online Solutions (VTOS). All rights reserved.</p>
+      <div class="footer-bottom-links">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ========== LOGIN / REGISTER MODAL ========== -->
+  <div class="modal-overlay" id="loginModal" onclick="closeModalOutside(event, 'loginModal')">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('loginModal')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="modal-tabs">
+        <button class="modal-tab active" id="loginTab" onclick="switchTab('login')">Sign In</button>
+        <button class="modal-tab" id="registerTab" onclick="switchTab('register')">Create Account</button>
+      </div>
+
+      <!-- Login Form -->
+      <div id="loginForm">
+        <div class="modal-logo">
+          <div class="logo-icon" style="width:36px;height:36px">
+            <svg viewBox="0 0 40 40" fill="none"><polygon points="20,4 36,36 20,28 4,36" fill="none" stroke="#39FF14" stroke-width="2"/><circle cx="20" cy="22" r="5" fill="#1E6FD9" stroke="#39FF14" stroke-width="1"/><polygon points="18,21 23,22 18,25" fill="#39FF14"/></svg>
+          </div>
+          <span class="logo-vtos" style="font-size:1.2rem">VTOS</span>
+        </div>
+        <h3 class="modal-title">Welcome back</h3>
+        <p class="modal-sub">Sign in to access your client portal</p>
+        <div id="loginModalErr" class="hidden" style="background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.3);color:#ff8080;border-radius:8px;padding:.65rem 1rem;font-size:.85rem;margin-bottom:.75rem"></div>
+        <form onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label for="l-email">Email Address</label>
+            <input type="email" id="l-email" placeholder="you@example.com" required />
+          </div>
+          <div class="form-group">
+            <label for="l-pass">Password</label>
+            <div class="pass-wrap">
+              <input type="password" id="l-pass" placeholder="••••••••" required />
+              <button type="button" class="pass-toggle" onclick="togglePass('l-pass')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="form-row" style="align-items:center;justify-content:space-between">
+            <label class="checkbox-label" style="gap:.5rem;font-size:.85rem">
+              <input type="checkbox" /> <span class="checkbox-custom small"></span> Remember me
+            </label>
+            <a href="#" class="forgot-link">Forgot password?</a>
+          </div>
+          <button type="submit" class="btn-primary btn-full" style="margin-top:1.5rem">Sign In</button>
+        </form>
+        <p class="modal-switch">Don't have an account? <a href="#" onclick="switchTab('register')">Create one</a></p>
+      </div>
+
+      <!-- Register Form -->
+      <div id="registerForm" class="hidden">
+        <div class="modal-logo">
+          <div class="logo-icon" style="width:36px;height:36px">
+            <svg viewBox="0 0 40 40" fill="none"><polygon points="20,4 36,36 20,28 4,36" fill="none" stroke="#39FF14" stroke-width="2"/><circle cx="20" cy="22" r="5" fill="#1E6FD9" stroke="#39FF14" stroke-width="1"/><polygon points="18,21 23,22 18,25" fill="#39FF14"/></svg>
+          </div>
+          <span class="logo-vtos" style="font-size:1.2rem">VTOS</span>
+        </div>
+        <h3 class="modal-title">Create your account</h3>
+        <p class="modal-sub">Access your projects, courier bookings, and more</p>
+        <div id="registerModalErr" class="hidden" style="background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.3);color:#ff8080;border-radius:8px;padding:.65rem 1rem;font-size:.85rem;margin-bottom:.75rem"></div>
+        <form onsubmit="handleRegister(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="r-fname">First Name</label>
+              <input type="text" id="r-fname" placeholder="Jane" required />
+            </div>
+            <div class="form-group">
+              <label for="r-lname">Last Name</label>
+              <input type="text" id="r-lname" placeholder="Smith" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="r-email">Email Address</label>
+            <input type="email" id="r-email" placeholder="you@example.com" required />
+          </div>
+          <div class="form-group">
+            <label for="r-phone">Phone / WhatsApp</label>
+            <input type="tel" id="r-phone" placeholder="+27 XX XXX XXXX" />
+          </div>
+          <div class="form-group">
+            <label for="r-pass">Password</label>
+            <div class="pass-wrap">
+              <input type="password" id="r-pass" placeholder="Min 8 characters" required minlength="8" />
+              <button type="button" class="pass-toggle" onclick="togglePass('r-pass')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" required />
+              <span class="checkbox-custom"></span>
+              I agree to the <a href="#" style="color:#39FF14">Terms of Service</a> and <a href="#" style="color:#39FF14">Privacy Policy</a>
+            </label>
+          </div>
+          <button type="submit" class="btn-primary btn-full">Create Account</button>
+        </form>
+        <p class="modal-switch">Already have an account? <a href="#" onclick="switchTab('login')">Sign in</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== SCRIPTS ========== -->
+  <script src="app.js"></script>
+</body>
+</html>

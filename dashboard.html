@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VTOS | My Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .dash-layout   { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+    .dash-sidebar  { background: var(--surface); border-right: 1px solid var(--border); padding: 1.5rem 1rem; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+    .dash-main     { padding: 2.5rem 2rem; overflow-y: auto; }
+    .sb-logo       { display: flex; align-items: center; gap: .75rem; margin-bottom: 2rem; padding: 0 .5rem; }
+    .sb-nav        { flex: 1; display: flex; flex-direction: column; gap: .2rem; }
+    .sb-link       { display: flex; align-items: center; gap: .75rem; background: none; border: none; color: var(--muted); font-size: .875rem; font-weight: 500; padding: .7rem .9rem; border-radius: 8px; cursor: pointer; transition: .25s; text-align: left; width: 100%; }
+    .sb-link:hover { color: var(--text); background: rgba(255,255,255,.05); }
+    .sb-link.active{ color: var(--green); background: rgba(57,255,20,.1); }
+    .sb-user       { border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 1rem; }
+    .sb-user-name  { font-size: .875rem; font-weight: 600; margin-bottom: .15rem; }
+    .sb-user-email { font-size: .75rem; color: var(--muted); }
+    .sb-logout     { display: flex; align-items: center; gap: .6rem; background: none; border: 1px solid var(--border); color: var(--muted); font-size: .82rem; padding: .55rem .9rem; border-radius: 8px; cursor: pointer; transition: .25s; margin-top: .75rem; width: 100%; }
+    .sb-logout:hover { color: #ff8080; border-color: rgba(255,80,80,.3); background: rgba(255,80,80,.05); }
+
+    /* Pages */
+    .dash-page     { display: none; }
+    .dash-page.active { display: block; }
+    .page-hdr      { margin-bottom: 2rem; }
+    .page-hdr h2   { font-size: 1.4rem; font-weight: 700; }
+    .page-hdr p    { color: var(--muted); font-size: .875rem; margin-top: .25rem; }
+
+    /* Overview cards */
+    .overview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 2rem; }
+    .ov-card       { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1rem; }
+    .ov-icon       { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .ov-val        { font-size: 1.8rem; font-weight: 800; line-height: 1; }
+    .ov-lbl        { font-size: .78rem; color: var(--muted); margin-top: .2rem; }
+
+    /* Table */
+    .data-card     { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .dc-header     { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border); }
+    .dc-header h3  { font-size: 1rem; font-weight: 700; }
+    .data-table    { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    .data-table th { text-align: left; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: .65rem 1.25rem; border-bottom: 1px solid var(--border); }
+    .data-table td { padding: .85rem 1.25rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .empty-row     { text-align: center; padding: 2.5rem; color: var(--muted); font-size: .875rem; }
+
+    /* Badge */
+    .badge         { display: inline-block; font-size: .7rem; font-weight: 700; padding: .2rem .65rem; border-radius: 100px; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+    .b-new         { background: rgba(57,255,20,.1); color: #39FF14; border: 1px solid rgba(57,255,20,.3); }
+    .b-contacted   { background: rgba(30,111,217,.15); color: #4FC3F7; border: 1px solid rgba(30,111,217,.3); }
+    .b-in_progress { background: rgba(255,180,0,.1); color: #ffb400; border: 1px solid rgba(255,180,0,.3); }
+    .b-converted   { background: rgba(57,255,20,.15); color: #9fff9f; border: 1px solid rgba(57,255,20,.4); }
+    .b-closed      { background: rgba(255,255,255,.05); color: var(--muted); border: 1px solid var(--border); }
+    .b-pending          { background: rgba(255,180,0,.1); color: #ffb400; border: 1px solid rgba(255,180,0,.3); }
+    .b-awaiting_pickup  { background: rgba(30,111,217,.15); color: #4FC3F7; border: 1px solid rgba(30,111,217,.3); }
+    .b-in_transit       { background: rgba(155,89,182,.12); color: #c39bd3; border: 1px solid rgba(155,89,182,.3); }
+    .b-received         { background: rgba(57,255,20,.1); color: #39FF14; border: 1px solid rgba(57,255,20,.3); }
+    .b-diagnosing       { background: rgba(255,180,0,.1); color: #ffb400; border: 1px solid rgba(255,180,0,.3); }
+    .b-awaiting_approval{ background: rgba(255,100,100,.1); color: #ff8080; border: 1px solid rgba(255,100,100,.3); }
+    .b-repairing        { background: rgba(30,111,217,.15); color: #4FC3F7; border: 1px solid rgba(30,111,217,.3); }
+    .b-ready_to_return  { background: rgba(57,255,20,.15); color: #9fff9f; border: 1px solid rgba(57,255,20,.4); }
+    .b-returned         { background: rgba(255,255,255,.05); color: var(--muted); border: 1px solid var(--border); }
+
+    /* Tracking timeline */
+    .tracking-panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-top: 1.25rem; }
+    .tracking-panel h4 { font-size: .95rem; font-weight: 700; margin-bottom: 1.25rem; }
+    .tl-step { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1.25rem; position: relative; }
+    .tl-step::before { content: ''; position: absolute; left: 11px; top: 24px; width: 2px; height: calc(100% + .25rem); background: var(--border); }
+    .tl-step:last-child::before { display: none; }
+    .tl-step .dot { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .tl-step.done .dot { background: var(--green-dim); border-color: var(--green); }
+    .tl-step.current .dot { background: rgba(30,111,217,.2); border-color: var(--blue); animation: pulse 2s infinite; }
+    .tl-step.done .dot::after { content: '✓'; font-size: .65rem; color: var(--green); font-weight: 800; }
+    .tl-step.current .dot::after { content: '▸'; font-size: .65rem; color: #4FC3F7; }
+    .tl-step strong { display: block; font-size: .875rem; }
+    .tl-step p { font-size: .8rem; color: var(--muted); margin-top: .1rem; }
+
+    /* Profile */
+    .profile-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; max-width: 520px; }
+    .profile-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 1.5rem; }
+    .fg { margin-bottom: 1.1rem; }
+    .fg label { display: block; font-size: .75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .35rem; }
+    .fg input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: .9rem; font-family: 'Inter',sans-serif; padding: .65rem 1rem; outline: none; transition: .25s; }
+    .fg input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(57,255,20,.1); }
+    .fg .pass-wrap { position: relative; }
+    .fg .pass-wrap input { padding-right: 3rem; }
+    .fg .pass-toggle { position: absolute; right: .75rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); cursor: pointer; }
+    .feedback { display: none; border-radius: 8px; padding: .6rem 1rem; font-size: .85rem; margin-bottom: 1rem; }
+    .feedback.success { background: rgba(57,255,20,.08); border: 1px solid rgba(57,255,20,.3); color: var(--green); display: block; }
+    .feedback.error   { background: rgba(255,80,80,.08); border: 1px solid rgba(255,80,80,.3); color: #ff8080; display: block; }
+
+    /* Auth gate */
+    .auth-gate { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+    .auth-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 2.5rem; width: 100%; max-width: 420px; text-align: center; }
+    .auth-box h2 { font-size: 1.4rem; font-weight: 700; margin: 1rem 0 .5rem; }
+    .auth-box p  { color: var(--muted); font-size: .875rem; margin-bottom: 1.75rem; }
+
+    @media (max-width: 900px) {
+      .dash-layout { grid-template-columns: 1fr; }
+      .dash-sidebar { display: none; }
+      .overview-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 540px) {
+      .overview-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Auth Gate (shown when not logged in) ── -->
+  <div id="authGate" class="auth-gate hidden">
+    <div class="auth-box">
+      <svg viewBox="0 0 40 40" fill="none" width="48" height="48" style="display:block;margin:0 auto">
+        <polygon points="20,4 36,36 20,28 4,36" fill="none" stroke="#39FF14" stroke-width="2"/>
+        <circle cx="20" cy="22" r="5" fill="#1E6FD9" stroke="#39FF14" stroke-width="1"/>
+        <polygon points="18,21 23,22 18,25" fill="#39FF14"/>
+      </svg>
+      <h2>Sign in to continue</h2>
+      <p>Access your projects, courier bookings, and quotes from your VTOS client portal.</p>
+      <div id="gateErr" style="display:none;background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.3);color:#ff8080;border-radius:8px;padding:.65rem 1rem;font-size:.85rem;margin-bottom:1rem"></div>
+      <form onsubmit="gateLogin(event)" style="text-align:left">
+        <div class="fg"><label>Email</label><input type="email" id="gate-email" placeholder="you@example.com" required /></div>
+        <div class="fg">
+          <label>Password</label>
+          <div class="pass-wrap">
+            <input type="password" id="gate-pass" placeholder="••••••••" required />
+            <button type="button" class="pass-toggle" onclick="document.getElementById('gate-pass').type=document.getElementById('gate-pass').type==='password'?'text':'password'">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary btn-full" id="gateLoginBtn" style="margin-top:.5rem">Sign In</button>
+      </form>
+      <p style="text-align:center;font-size:.85rem;color:var(--muted);margin-top:1.25rem">
+        No account? <a href="index.html" style="color:var(--green)">Create one on our homepage</a>
+      </p>
+      <a href="index.html" style="display:block;text-align:center;margin-top:.75rem;font-size:.82rem;color:var(--muted);text-decoration:none">← Back to VTOS</a>
+    </div>
+  </div>
+
+  <!-- ── Dashboard App ── -->
+  <div id="dashApp" class="dash-layout hidden">
+
+    <!-- Sidebar -->
+    <aside class="dash-sidebar">
+      <div class="sb-logo">
+        <svg viewBox="0 0 40 40" fill="none" width="32" height="32">
+          <polygon points="20,4 36,36 20,28 4,36" fill="none" stroke="#39FF14" stroke-width="2"/>
+          <circle cx="20" cy="22" r="5" fill="#1E6FD9" stroke="#39FF14" stroke-width="1"/>
+          <polygon points="18,21 23,22 18,25" fill="#39FF14"/>
+        </svg>
+        <div>
+          <span style="font-family:'Orbitron',sans-serif;font-size:.9rem;font-weight:700;color:var(--green)">VTOS</span>
+          <span style="display:block;font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Client Portal</span>
+        </div>
+      </div>
+
+      <nav class="sb-nav">
+        <button class="sb-link active" data-page="overview" onclick="showPage('overview')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Overview
+        </button>
+        <button class="sb-link" data-page="courier" onclick="showPage('courier')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          Courier Bookings
+        </button>
+        <button class="sb-link" data-page="quotes" onclick="showPage('quotes')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          My Quotes
+        </button>
+        <button class="sb-link" data-page="profile" onclick="showPage('profile')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          My Profile
+        </button>
+      </nav>
+
+      <div class="sb-user">
+        <div class="sb-user-name" id="sidebarName">—</div>
+        <div class="sb-user-email" id="sidebarEmail">—</div>
+        <button class="sb-logout" onclick="dashLogout()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          Sign Out
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="dash-main">
+
+      <!-- ── Overview ── -->
+      <section id="page-overview" class="dash-page active">
+        <div class="page-hdr">
+          <h2 id="welcomeMsg">Welcome back</h2>
+          <p>Here's a summary of your activity with VTOS.</p>
+        </div>
+
+        <div class="overview-grid">
+          <div class="ov-card">
+            <div class="ov-icon" style="background:rgba(30,111,217,.15);color:#4FC3F7">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            </div>
+            <div>
+              <div class="ov-val" id="ov-courier" style="color:#4FC3F7">–</div>
+              <div class="ov-lbl">Courier Bookings</div>
+            </div>
+          </div>
+          <div class="ov-card">
+            <div class="ov-icon" style="background:rgba(57,255,20,.1);color:var(--green)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            </div>
+            <div>
+              <div class="ov-val" id="ov-quotes" style="color:var(--green)">–</div>
+              <div class="ov-lbl">Quote Requests</div>
+            </div>
+          </div>
+          <div class="ov-card">
+            <div class="ov-icon" style="background:rgba(255,180,0,.1);color:#ffb400">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div>
+              <div class="ov-val" id="ov-active" style="color:#ffb400">–</div>
+              <div class="ov-lbl">Active Jobs</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent activity -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-top:0">
+          <div class="data-card">
+            <div class="dc-header">
+              <h3>Recent Courier Bookings</h3>
+              <button onclick="showPage('courier')" style="background:none;border:none;color:var(--green);font-size:.82rem;cursor:pointer">View all →</button>
+            </div>
+            <div id="ov-courier-list" style="padding:.5rem 0"></div>
+          </div>
+          <div class="data-card">
+            <div class="dc-header">
+              <h3>Recent Quotes</h3>
+              <button onclick="showPage('quotes')" style="background:none;border:none;color:var(--green);font-size:.82rem;cursor:pointer">View all →</button>
+            </div>
+            <div id="ov-quotes-list" style="padding:.5rem 0"></div>
+          </div>
+        </div>
+
+        <div style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap">
+          <a href="courier.html" class="btn-primary" style="text-decoration:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            New Courier Booking
+          </a>
+          <a href="index.html#quote" class="btn-secondary" style="text-decoration:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            Request a Quote
+          </a>
+        </div>
+      </section>
+
+      <!-- ── Courier Bookings ── -->
+      <section id="page-courier" class="dash-page">
+        <div class="page-hdr" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+          <div>
+            <h2>Courier Bookings</h2>
+            <p>All your hardware shipments and repair jobs</p>
+          </div>
+          <a href="courier.html" class="btn-primary" style="text-decoration:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Booking
+          </a>
+        </div>
+
+        <div id="courierList"></div>
+      </section>
+
+      <!-- ── Courier Detail (inline) ── -->
+      <section id="page-courier-detail" class="dash-page">
+        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:2rem">
+          <button onclick="showPage('courier')" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:.45rem .85rem;cursor:pointer;font-size:.82rem;display:flex;align-items:center;gap:.4rem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <h2 style="font-size:1.3rem;font-weight:700" id="detailTitle">Booking Detail</h2>
+        </div>
+        <div id="courierDetail"></div>
+      </section>
+
+      <!-- ── My Quotes ── -->
+      <section id="page-quotes" class="dash-page">
+        <div class="page-hdr" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+          <div>
+            <h2>My Quotes</h2>
+            <p>Track the status of your quote requests</p>
+          </div>
+          <a href="index.html#quote" class="btn-primary" style="text-decoration:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Quote
+          </a>
+        </div>
+        <div class="data-card">
+          <div id="quotesList"></div>
+        </div>
+      </section>
+
+      <!-- ── Profile ── -->
+      <section id="page-profile" class="dash-page">
+        <div class="page-hdr"><h2>My Profile</h2><p>Update your account details</p></div>
+
+        <div style="display:flex;flex-direction:column;gap:1.5rem;max-width:520px">
+
+          <div class="profile-card">
+            <h3>Personal Information</h3>
+            <div id="profileFeedback" class="feedback"></div>
+            <form onsubmit="saveProfile(event)">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+                <div class="fg"><label>First Name</label><input type="text" id="p-fname" required /></div>
+                <div class="fg"><label>Last Name</label><input type="text" id="p-lname" required /></div>
+              </div>
+              <div class="fg"><label>Email</label><input type="email" id="p-email" disabled style="opacity:.5;cursor:not-allowed" /></div>
+              <div class="fg"><label>Phone / WhatsApp</label><input type="tel" id="p-phone" placeholder="+27 XX XXX XXXX" /></div>
+              <button type="submit" class="btn-primary" style="margin-top:.5rem">Save Changes</button>
+            </form>
+          </div>
+
+          <div class="profile-card">
+            <h3>Change Password</h3>
+            <div id="passFeedback" class="feedback"></div>
+            <form onsubmit="changePassword(event)">
+              <div class="fg">
+                <label>Current Password</label>
+                <div class="pass-wrap">
+                  <input type="password" id="p-current" placeholder="••••••••" required />
+                  <button type="button" class="pass-toggle" onclick="togglePassField('p-current')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="fg">
+                <label>New Password</label>
+                <div class="pass-wrap">
+                  <input type="password" id="p-new" placeholder="Min 8 characters" required minlength="8" />
+                  <button type="button" class="pass-toggle" onclick="togglePassField('p-new')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                </div>
+              </div>
+              <button type="submit" class="btn-primary" style="margin-top:.5rem">Update Password</button>
+            </form>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    const API = '/api';
+    let token = localStorage.getItem('vtos_token');
+    let user  = null;
+
+    const COURIER_LABELS = {
+      pending:'Booking Submitted', awaiting_pickup:'Awaiting Pickup', in_transit:'In Transit',
+      received:'Received', diagnosing:'Diagnosing', awaiting_approval:'Awaiting Approval',
+      repairing:'Repairing', ready_to_return:'Ready to Return', returned:'Returned', closed:'Closed',
+    };
+
+    const COURIER_STEPS = [
+      { key:'pending',           label:'Booking Submitted' },
+      { key:'awaiting_pickup',   label:'Awaiting Pickup' },
+      { key:'in_transit',        label:'In Transit to VTOS' },
+      { key:'received',          label:'Received at Workshop' },
+      { key:'diagnosing',        label:'Under Diagnostics' },
+      { key:'awaiting_approval', label:'Awaiting Your Approval' },
+      { key:'repairing',         label:'Repair in Progress' },
+      { key:'ready_to_return',   label:'Ready to Return' },
+      { key:'returned',          label:'Returned to You' },
+    ];
+
+    function apiFetch(path, opts = {}) {
+      return fetch(`${API}${path}`, {
+        ...opts,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(opts.headers || {}),
+        },
+      });
+    }
+
+    async function boot() {
+      if (!token) { showGate(); return; }
+      try {
+        const res = await apiFetch('/auth/me');
+        if (!res.ok) { showGate(); return; }
+        user = await res.json();
+        showDash();
+      } catch { showGate(); }
+    }
+
+    function showGate() {
+      document.getElementById('authGate').classList.remove('hidden');
+      document.getElementById('dashApp').classList.add('hidden');
+    }
+
+    function showDash() {
+      document.getElementById('authGate').classList.add('hidden');
+      document.getElementById('dashApp').classList.remove('hidden');
+      document.getElementById('sidebarName').textContent  = `${user.first_name} ${user.last_name}`;
+      document.getElementById('sidebarEmail').textContent = user.email;
+      document.getElementById('welcomeMsg').textContent   = `Welcome back, ${user.first_name}`;
+      document.getElementById('p-fname').value  = user.first_name;
+      document.getElementById('p-lname').value  = user.last_name;
+      document.getElementById('p-email').value  = user.email;
+      document.getElementById('p-phone').value  = user.phone || '';
+      loadOverview();
+    }
+
+    async function gateLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('gateLoginBtn');
+      const err = document.getElementById('gateErr');
+      err.style.display = 'none';
+      btn.textContent = 'Signing in…'; btn.disabled = true;
+      try {
+        const res  = await fetch(`${API}/auth/login`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: document.getElementById('gate-email').value, password: document.getElementById('gate-pass').value }),
+        });
+        const data = await res.json();
+        if (!res.ok) { err.textContent = data.error || 'Login failed'; err.style.display = 'block'; return; }
+        token = data.token; user = data.user;
+        localStorage.setItem('vtos_token', token);
+        showDash();
+      } catch { err.textContent = 'Could not reach server.'; err.style.display = 'block'; }
+      finally { btn.textContent = 'Sign In'; btn.disabled = false; }
+    }
+
+    function dashLogout() {
+      token = null; user = null;
+      localStorage.removeItem('vtos_token');
+      showGate();
+    }
+
+    function showPage(name) {
+      document.querySelectorAll('.dash-page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.sb-link').forEach(b => b.classList.remove('active'));
+      const page = document.getElementById(`page-${name}`);
+      const btn  = document.querySelector(`[data-page="${name}"]`);
+      if (page) page.classList.add('active');
+      if (btn)  btn.classList.add('active');
+      if (name === 'courier') loadCourierList();
+      if (name === 'quotes')  loadQuotesList();
+    }
+
+    async function loadOverview() {
+      const [courierRes, quotesRes] = await Promise.all([
+        apiFetch('/courier/my'), apiFetch('/quotes/my'),
+      ]);
+      const couriers = courierRes.ok ? await courierRes.json() : [];
+      const quotes   = quotesRes.ok  ? await quotesRes.json()  : [];
+
+      const active = couriers.filter(c => !['returned','closed'].includes(c.status)).length;
+      document.getElementById('ov-courier').textContent = couriers.length;
+      document.getElementById('ov-quotes').textContent  = quotes.length;
+      document.getElementById('ov-active').textContent  = active;
+
+      const cList = document.getElementById('ov-courier-list');
+      cList.innerHTML = couriers.slice(0,4).map(c => `
+        <div onclick="viewCourierDetail(${c.id})" style="display:flex;align-items:center;justify-content:space-between;padding:.65rem 1.25rem;cursor:pointer;border-bottom:1px solid var(--border);transition:.2s" onmouseover="this.style.background='rgba(255,255,255,.025)'" onmouseout="this.style.background=''">
+          <div><div style="font-size:.875rem;font-weight:600">${esc(c.item_type)}</div><div style="font-size:.78rem;color:var(--muted)">${fmtDate(c.created_at)}</div></div>
+          <span class="badge b-${c.status}">${esc(COURIER_LABELS[c.status] || c.status)}</span>
+        </div>`).join('') || '<div class="empty-row">No bookings yet</div>';
+
+      const qList = document.getElementById('ov-quotes-list');
+      qList.innerHTML = quotes.slice(0,4).map(q => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:.65rem 1.25rem;border-bottom:1px solid var(--border)">
+          <div><div style="font-size:.875rem;font-weight:600">${esc(q.service)}</div><div style="font-size:.78rem;color:var(--muted)">${fmtDate(q.created_at)}</div></div>
+          <span class="badge b-${q.status}">${q.status}</span>
+        </div>`).join('') || '<div class="empty-row">No quotes yet</div>';
+    }
+
+    async function loadCourierList() {
+      const el = document.getElementById('courierList');
+      el.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted)">Loading...</div>';
+      const res  = await apiFetch('/courier/my');
+      const data = res.ok ? await res.json() : [];
+
+      if (!data.length) {
+        el.innerHTML = `
+          <div class="data-card" style="text-align:center;padding:3rem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" width="40" height="40" style="opacity:.4;display:block;margin:0 auto .75rem"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            <p style="color:var(--muted)">No courier bookings yet.</p>
+            <a href="courier.html" class="btn-primary" style="display:inline-flex;text-decoration:none;margin-top:1.25rem">Book your first courier-in</a>
+          </div>`;
+        return;
+      }
+
+      el.innerHTML = data.map(c => `
+        <div class="data-card" style="margin-bottom:1.25rem;cursor:pointer" onclick="viewCourierDetail(${c.id})">
+          <div style="padding:1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+            <div style="display:flex;align-items:center;gap:1rem">
+              <div style="width:44px;height:44px;background:rgba(30,111,217,.15);border-radius:10px;display:flex;align-items:center;justify-content:center">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#4FC3F7" stroke-width="1.8" width="22"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+              </div>
+              <div>
+                <div style="font-weight:700">${esc(c.item_type)}</div>
+                <div style="font-size:.8rem;color:var(--muted)">Ref: VTOS-COURIER-${c.id} · ${fmtDate(c.created_at)}</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:1rem">
+              <span class="badge b-${c.status}">${esc(COURIER_LABELS[c.status] || c.status)}</span>
+              <span style="color:var(--muted);font-size:.8rem">View details →</span>
+            </div>
+          </div>
+          ${c.tracking_number ? `<div style="padding:.6rem 1.25rem;border-top:1px solid var(--border);font-size:.8rem;color:var(--muted)">Tracking: <code style="color:var(--green)">${esc(c.tracking_number)}</code> via ${esc(c.courier_company || '–')}</div>` : ''}
+        </div>`).join('');
+    }
+
+    async function viewCourierDetail(id) {
+      showPage('courier-detail');
+      const el = document.getElementById('courierDetail');
+      el.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted)">Loading...</div>';
+
+      const res = await apiFetch(`/courier/${id}`);
+      if (!res.ok) { el.innerHTML = '<div style="color:#ff8080;padding:1rem">Failed to load booking.</div>'; return; }
+      const b = await res.json();
+
+      document.getElementById('detailTitle').textContent = `Booking #VTOS-COURIER-${b.id}`;
+
+      const statusIdx = COURIER_STEPS.findIndex(s => s.key === b.status);
+
+      el.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 360px;gap:1.5rem;align-items:start">
+          <div>
+            <div class="data-card" style="margin-bottom:1.25rem">
+              <div class="dc-header"><h3>Item Details</h3><span class="badge b-${b.status}">${esc(COURIER_LABELS[b.status] || b.status)}</span></div>
+              <div style="padding:1.25rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+                <div><div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.3rem">Item Type</div><div style="font-weight:600">${esc(b.item_type)}</div></div>
+                <div><div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.3rem">Submitted</div><div>${fmtDate(b.created_at)}</div></div>
+                <div style="grid-column:1/-1"><div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.3rem">Item Description</div><div>${esc(b.item_description)}</div></div>
+                <div style="grid-column:1/-1"><div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.3rem">Issue / Reason</div><div style="white-space:pre-wrap;font-size:.875rem;color:var(--muted)">${esc(b.issue_description)}</div></div>
+                ${b.courier_company ? `<div><div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.3rem">Courier</div><div>${esc(b.courier_company)}</div></div>` : ''}
+                ${b.tracking_number ? `<div><div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.3rem">Tracking #</div><div><code style="color:var(--green)">${esc(b.tracking_number)}</code></div></div>` : ''}
+                ${b.return_courier  ? `<div><div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.3rem">Return Courier</div><div>${esc(b.return_courier)}</div></div>` : ''}
+                ${b.return_tracking ? `<div><div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.3rem">Return Tracking</div><div><code style="color:var(--green)">${esc(b.return_tracking)}</code></div></div>` : ''}
+              </div>
+              ${b.admin_notes ? `<div style="padding:.75rem 1.25rem;border-top:1px solid var(--border);background:rgba(30,111,217,.06)"><div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#4FC3F7;margin-bottom:.3rem">Note from VTOS</div><div style="font-size:.875rem">${esc(b.admin_notes)}</div></div>` : ''}
+            </div>
+          </div>
+
+          <div class="tracking-panel">
+            <h4>Repair Progress</h4>
+            ${COURIER_STEPS.map((s, i) => {
+              const done    = i < statusIdx;
+              const current = i === statusIdx;
+              return `<div class="tl-step ${done ? 'done' : ''} ${current ? 'current' : ''}">
+                <div class="dot"></div>
+                <div><strong>${s.label}</strong></div>
+              </div>`;
+            }).join('')}
+            <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)">
+              <a href="https://wa.me/27734185106" target="_blank" class="btn-primary" style="display:flex;text-decoration:none;font-size:.82rem;padding:.6rem 1.25rem">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15" style="margin-right:.4rem"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                Ask a Question
+              </a>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    async function loadQuotesList() {
+      const el  = document.getElementById('quotesList');
+      el.innerHTML = '<div class="empty-row">Loading...</div>';
+      const res  = await apiFetch('/quotes/my');
+      const data = res.ok ? await res.json() : [];
+
+      if (!data.length) {
+        el.innerHTML = `<div style="text-align:center;padding:3rem">
+          <p style="color:var(--muted)">No quote requests yet.</p>
+          <a href="index.html#quote" class="btn-primary" style="display:inline-flex;text-decoration:none;margin-top:1rem">Request a Quote</a>
+        </div>`;
+        return;
+      }
+
+      el.innerHTML = `
+        <table class="data-table">
+          <thead><tr><th>Service</th><th>Budget</th><th>Consult</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody>
+            ${data.map(q => `
+              <tr>
+                <td style="font-weight:600">${esc(q.service)}</td>
+                <td style="color:var(--muted);font-size:.82rem">${esc(q.budget || '–')}</td>
+                <td>${q.wants_consult ? '<span style="color:var(--green);font-size:.82rem">Yes</span>' : '<span style="color:var(--muted);font-size:.82rem">No</span>'}</td>
+                <td><span class="badge b-${q.status}">${q.status}</span></td>
+                <td style="color:var(--muted);font-size:.78rem;white-space:nowrap">${fmtDate(q.created_at)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    async function saveProfile(e) {
+      e.preventDefault();
+      const fb = document.getElementById('profileFeedback');
+      fb.className = 'feedback';
+      const res = await apiFetch('/auth/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          first_name: document.getElementById('p-fname').value,
+          last_name:  document.getElementById('p-lname').value,
+          phone:      document.getElementById('p-phone').value,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        user = { ...user, ...data };
+        document.getElementById('sidebarName').textContent = `${user.first_name} ${user.last_name}`;
+        fb.textContent = 'Profile updated!'; fb.className = 'feedback success';
+      } else {
+        fb.textContent = data.error || 'Update failed.'; fb.className = 'feedback error';
+      }
+    }
+
+    async function changePassword(e) {
+      e.preventDefault();
+      const fb = document.getElementById('passFeedback');
+      fb.className = 'feedback';
+      const res = await apiFetch('/auth/password', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          current_password: document.getElementById('p-current').value,
+          new_password:     document.getElementById('p-new').value,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) { fb.textContent = 'Password changed!'; fb.className = 'feedback success'; e.target.reset(); }
+      else { fb.textContent = data.error || 'Failed.'; fb.className = 'feedback error'; }
+    }
+
+    function togglePassField(id) {
+      const el = document.getElementById(id);
+      el.type = el.type === 'password' ? 'text' : 'password';
+    }
+
+    function esc(s) {
+      if (s == null) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function fmtDate(s) {
+      if (!s) return '–';
+      return new Date(s).toLocaleDateString('en-ZA', { day:'2-digit', month:'short', year:'numeric' });
+    }
+
+    boot();
+  </script>
+</body>
+</html>

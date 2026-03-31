@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Environment — NEVER commit real credentials
+.env
+.env.local
+.env.production
+
+# Vercel build output
+.vercel/
+.vercel
+
+# Invoice & document files (personal/client documents — keep local only)
+*.pdf
+*.xlsx
+*.zip
+*.bak
+build_*.py
+
+# Claude Code internal config
+.claude/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+*.swp

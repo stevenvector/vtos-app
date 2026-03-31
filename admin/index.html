@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VTOS Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Login Screen ── -->
+  <div id="loginScreen">
+    <div class="login-box">
+      <div class="login-logo">
+        <svg viewBox="0 0 40 40" fill="none" width="44" height="44">
+          <polygon points="20,4 36,36 20,28 4,36" fill="none" stroke="#39FF14" stroke-width="2"/>
+          <circle cx="20" cy="22" r="5" fill="#1E6FD9" stroke="#39FF14" stroke-width="1"/>
+          <polygon points="18,21 23,22 18,25" fill="#39FF14"/>
+        </svg>
+        <div>
+          <span class="login-vtos">VTOS</span>
+          <span class="login-sub">Admin Panel</span>
+        </div>
+      </div>
+      <h2>Administrator Access</h2>
+      <p class="login-hint">This panel is not publicly accessible.</p>
+      <form id="loginForm" onsubmit="adminLogin(event)">
+        <div class="fg">
+          <label>Email</label>
+          <input type="email" id="a-email" placeholder="admin@vtos.local" required />
+        </div>
+        <div class="fg">
+          <label>Password</label>
+          <div class="pw-wrap">
+            <input type="password" id="a-pass" placeholder="••••••••" required />
+            <button type="button" onclick="togglePw('a-pass')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <div id="loginError" class="error-msg hidden"></div>
+        <button type="submit" class="btn-g" id="loginBtn">Sign In</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Admin App ── -->
+  <div id="adminApp" class="hidden">
+
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div class="sb-logo">
+        <svg viewBox="0 0 40 40" fill="none" width="32" height="32">
+          <polygon points="20,4 36,36 20,28 4,36" fill="none" stroke="#39FF14" stroke-width="2"/>
+          <circle cx="20" cy="22" r="5" fill="#1E6FD9" stroke="#39FF14" stroke-width="1"/>
+          <polygon points="18,21 23,22 18,25" fill="#39FF14"/>
+        </svg>
+        <div>
+          <span class="sb-vtos">VTOS</span>
+          <span class="sb-role">Admin</span>
+        </div>
+      </div>
+
+      <nav class="sb-nav">
+        <button class="sb-link active" onclick="showPage('dashboard')" data-page="dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+          Dashboard
+        </button>
+        <button class="sb-link" onclick="showPage('quotes')" data-page="quotes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          Quote Leads
+          <span class="sb-badge" id="newQuotesBadge"></span>
+        </button>
+        <button class="sb-link" onclick="showPage('courier')" data-page="courier">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          Courier Bookings
+          <span class="sb-badge" id="activeCourierBadge"></span>
+        </button>
+        <button class="sb-link" onclick="showPage('portfolio')" data-page="portfolio">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          Portfolio
+        </button>
+        <button class="sb-link" onclick="showPage('users')" data-page="users">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          Users
+        </button>
+      </nav>
+
+      <button class="sb-logout" onclick="adminLogout()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        Sign Out
+      </button>
+    </aside>
+
+    <!-- Main content -->
+    <main id="mainContent">
+
+      <!-- ── Page: Dashboard ── -->
+      <section id="page-dashboard" class="page active">
+        <div class="page-header">
+          <div>
+            <h1>Dashboard</h1>
+            <p id="dashGreeting">Welcome back</p>
+          </div>
+          <button class="btn-g btn-sm" onclick="refreshStats()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+            Refresh
+          </button>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card green">
+            <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+            <div class="stat-info"><span class="stat-val" id="s-newLeads">–</span><span class="stat-lbl">New Leads</span></div>
+          </div>
+          <div class="stat-card blue">
+            <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+            <div class="stat-info"><span class="stat-val" id="s-totalLeads">–</span><span class="stat-lbl">Total Leads</span></div>
+          </div>
+          <div class="stat-card yellow">
+            <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+            <div class="stat-info"><span class="stat-val" id="s-activeCourier">–</span><span class="stat-lbl">Active Courier Jobs</span></div>
+          </div>
+          <div class="stat-card purple">
+            <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+            <div class="stat-info"><span class="stat-val" id="s-clients">–</span><span class="stat-lbl">Registered Clients</span></div>
+          </div>
+        </div>
+
+        <div class="recent-grid">
+          <div class="card">
+            <div class="card-hdr">
+              <h3>Recent Quote Leads</h3>
+              <button class="link-btn" onclick="showPage('quotes')">View all →</button>
+            </div>
+            <div id="recentQuotes" class="mini-list">Loading...</div>
+          </div>
+          <div class="card">
+            <div class="card-hdr">
+              <h3>Recent Courier Bookings</h3>
+              <button class="link-btn" onclick="showPage('courier')">View all →</button>
+            </div>
+            <div id="recentCourier" class="mini-list">Loading...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Page: Quote Leads ── -->
+      <section id="page-quotes" class="page">
+        <div class="page-header">
+          <div><h1>Quote Leads</h1><p>Manage all incoming quote requests</p></div>
+          <div class="header-actions">
+            <select id="quoteStatusFilter" onchange="loadQuotes()">
+              <option value="">All Statuses</option>
+              <option value="new">New</option>
+              <option value="contacted">Contacted</option>
+              <option value="in_progress">In Progress</option>
+              <option value="converted">Converted</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+        </div>
+        <div class="card">
+          <div id="quotesTable">Loading...</div>
+        </div>
+      </section>
+
+      <!-- ── Quote Detail Modal ── -->
+      <div class="modal-overlay" id="quoteModal" onclick="closeModal(event,'quoteModal')">
+        <div class="modal">
+          <button class="modal-x" onclick="document.getElementById('quoteModal').classList.remove('open')">✕</button>
+          <h3 id="qm-title">Quote Detail</h3>
+          <div id="qm-body"></div>
+          <div class="modal-footer">
+            <select id="qm-status">
+              <option value="new">New</option>
+              <option value="contacted">Contacted</option>
+              <option value="in_progress">In Progress</option>
+              <option value="converted">Converted</option>
+              <option value="closed">Closed</option>
+            </select>
+            <textarea id="qm-notes" placeholder="Admin notes (optional)..." rows="3"></textarea>
+            <button class="btn-g" onclick="saveQuoteUpdate()">Save Changes</button>
+          </div>
+          <div id="qm-feedback" class="hidden"></div>
+        </div>
+      </div>
+
+      <!-- ── Page: Courier Bookings ── -->
+      <section id="page-courier" class="page">
+        <div class="page-header">
+          <div><h1>Courier Bookings</h1><p>Manage all hardware shipments</p></div>
+          <div class="header-actions">
+            <select id="courierStatusFilter" onchange="loadCourier()">
+              <option value="">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="awaiting_pickup">Awaiting Pickup</option>
+              <option value="in_transit">In Transit</option>
+              <option value="received">Received</option>
+              <option value="diagnosing">Diagnosing</option>
+              <option value="awaiting_approval">Awaiting Approval</option>
+              <option value="repairing">Repairing</option>
+              <option value="ready_to_return">Ready to Return</option>
+              <option value="returned">Returned</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+        </div>
+        <div class="card">
+          <div id="courierTable">Loading...</div>
+        </div>
+      </section>
+
+      <!-- ── Courier Detail Modal ── -->
+      <div class="modal-overlay" id="courierModal" onclick="closeModal(event,'courierModal')">
+        <div class="modal modal-wide">
+          <button class="modal-x" onclick="document.getElementById('courierModal').classList.remove('open')">✕</button>
+          <h3 id="cm-title">Courier Booking Detail</h3>
+          <div id="cm-body"></div>
+          <div class="modal-footer">
+            <div class="fg">
+              <label>Update Status</label>
+              <select id="cm-status">
+                <option value="pending">Booking Submitted</option>
+                <option value="awaiting_pickup">Awaiting Pickup</option>
+                <option value="in_transit">In Transit to VTOS</option>
+                <option value="received">Received at Workshop</option>
+                <option value="diagnosing">Under Diagnostics</option>
+                <option value="awaiting_approval">Awaiting Client Approval</option>
+                <option value="repairing">Repair in Progress</option>
+                <option value="ready_to_return">Ready to Return</option>
+                <option value="returned">Returned to Client</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+            <div class="form-row-2">
+              <div class="fg">
+                <label>Return Courier</label>
+                <input type="text" id="cm-return-courier" placeholder="e.g. The Courier Guy" />
+              </div>
+              <div class="fg">
+                <label>Return Tracking #</label>
+                <input type="text" id="cm-return-tracking" placeholder="Tracking number" />
+              </div>
+            </div>
+            <div class="fg">
+              <label>Admin Notes</label>
+              <textarea id="cm-notes" placeholder="Internal notes for this booking..." rows="3"></textarea>
+            </div>
+            <button class="btn-g" onclick="saveCourierUpdate()">Save Changes</button>
+          </div>
+          <div id="cm-feedback" class="hidden"></div>
+        </div>
+      </div>
+
+      <!-- ── Page: Portfolio ── -->
+      <section id="page-portfolio" class="page">
+        <div class="page-header">
+          <div><h1>Portfolio</h1><p>Manage public project showcase</p></div>
+          <button class="btn-g btn-sm" onclick="openPortfolioForm()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Project
+          </button>
+        </div>
+        <div id="portfolioGrid" class="portfolio-admin-grid">Loading...</div>
+      </section>
+
+      <!-- ── Portfolio Form Modal ── -->
+      <div class="modal-overlay" id="portfolioModal" onclick="closeModal(event,'portfolioModal')">
+        <div class="modal modal-wide">
+          <button class="modal-x" onclick="document.getElementById('portfolioModal').classList.remove('open')">✕</button>
+          <h3 id="pm-title">Add Portfolio Item</h3>
+          <form onsubmit="savePortfolioItem(event)">
+            <div class="fg">
+              <label>Project Title *</label>
+              <input type="text" id="pm-title-in" placeholder="e.g. Corporate Website Redesign" required />
+            </div>
+            <div class="form-row-2">
+              <div class="fg">
+                <label>Category *</label>
+                <select id="pm-tag" required>
+                  <option value="website">Website</option>
+                  <option value="webapp">Web App</option>
+                  <option value="ecommerce">E-Commerce</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>Display Order</label>
+                <input type="number" id="pm-order" value="0" min="0" />
+              </div>
+            </div>
+            <div class="fg">
+              <label>Description *</label>
+              <textarea id="pm-desc" rows="3" placeholder="Brief description of the project..." required></textarea>
+            </div>
+            <div class="fg">
+              <label>Screenshot URL</label>
+              <input type="url" id="pm-screenshot" placeholder="https://..." />
+            </div>
+            <div class="fg">
+              <label>Live Project URL</label>
+              <input type="url" id="pm-url" placeholder="https://..." />
+            </div>
+            <div class="fg">
+              <label class="toggle-label">
+                <input type="checkbox" id="pm-visible" checked />
+                <span class="toggle-custom"></span>
+                Visible on public portfolio
+              </label>
+            </div>
+            <div id="pm-feedback" class="hidden" style="margin-bottom:1rem"></div>
+            <button type="submit" class="btn-g">Save Project</button>
+          </form>
+          <input type="hidden" id="pm-editing-id" />
+        </div>
+      </div>
+
+      <!-- ── Page: Users ── -->
+      <section id="page-users" class="page">
+        <div class="page-header">
+          <div><h1>Users</h1><p>All registered client accounts</p></div>
+        </div>
+        <div class="card">
+          <div id="usersTable">Loading...</div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
