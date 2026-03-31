@@ -26,3 +26,5 @@ build_*.py
 Thumbs.db
 .vscode/
 *.swp
+
+.vercel
