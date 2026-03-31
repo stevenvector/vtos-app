@@ -93,11 +93,13 @@ app.get('/api/health', (req, res) => {
 // ── DB diagnostic (temp) ──────────────────────────────
 app.get('/api/dbtest', async (req, res) => {
   const pool = require('./db/connection');
+  const bcrypt = require('bcryptjs');
   try {
-    const r = await pool.query('SELECT NOW() as time, current_database() as db');
-    res.json({ ok: true, time: r.rows[0].time, db: r.rows[0].db });
+    const r = await pool.query('SELECT id, email, role, is_active, LEFT(password_hash,20) as hash_preview FROM users LIMIT 5');
+    const bcryptTest = await bcrypt.compare('fingers007', '$2a$12$placeholder000000000000000000000000000000000000000000000');
+    res.json({ ok: true, users: r.rows, bcrypt_ok: true });
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message, code: err.code });
+    res.status(500).json({ ok: false, error: err.message, code: err.code, stack: err.stack?.slice(0,300) });
   }
 });
 
