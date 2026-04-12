@@ -19,6 +19,10 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
+-- Password reset tokens
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token      VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_exp  TIMESTAMPTZ;
+
 -- ── Quote Leads ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS quotes (
   id               SERIAL PRIMARY KEY,

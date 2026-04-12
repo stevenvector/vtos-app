@@ -1402,4 +1402,21 @@ textarea { resize: vertical; min-height: 120px; }
   .hero-actions   { flex-direction: column; }
   .footer-links   { grid-template-columns: 1fr; }
   .pricing-grid   { max-width: 100%; }
+
+  /* Quote form */
+  .quote-form     { padding: 1.5rem 1rem; }
+
+  /* Modal full-screen on small phones */
+  .modal-content  { margin: 0; border-radius: 16px 16px 0 0; position: fixed; bottom: 0; left: 0; right: 0; max-height: 92vh; overflow-y: auto; }
+  .modal-overlay  { align-items: flex-end; }
+
+  /* Contact cards stack nicely */
+  .contact-card   { padding: 1.25rem; }
+
+  /* Section headings scale down */
+  .section-title  { font-size: 1.6rem; }
+  .hero-title     { font-size: 2rem; }
+
+  /* Pricing table scrollable on tiny screens */
+  .addons-table-wrap { overflow-x: auto; }
 }

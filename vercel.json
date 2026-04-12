@@ -8,6 +8,7 @@
     { "src": "app.js",         "use": "@vercel/static" },
     { "src": "courier.html",   "use": "@vercel/static" },
     { "src": "dashboard.html", "use": "@vercel/static" },
+    { "src": "reset-password.html", "use": "@vercel/static" },
     { "src": "admin/index.html", "use": "@vercel/static" },
     { "src": "admin/style.css",  "use": "@vercel/static" },
     { "src": "admin/app.js",     "use": "@vercel/static" }

@@ -1,9 +1,11 @@
 const express  = require('express');
 const bcrypt   = require('bcryptjs');
 const jwt      = require('jsonwebtoken');
+const crypto   = require('crypto');
 const { body, validationResult } = require('express-validator');
 const pool     = require('../db/connection');
 const { requireAuth } = require('../middleware/auth');
+const { sendPasswordReset } = require('../services/email');
 
 const router = express.Router();
 
@@ -161,6 +163,68 @@ router.patch('/password', requireAuth, [
   } catch (err) {
     console.error('[Auth] Password change error:', err.message);
     res.status(500).json({ error: 'Password update failed.' });
+  }
+});
+
+// ── POST /api/auth/forgot-password ───────────────────
+router.post('/forgot-password', [
+  body('email').isEmail().normalizeEmail(),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Valid email required.' });
+
+  // Always return success to prevent email enumeration
+  res.json({ message: 'If an account exists with that email, a reset link has been sent.' });
+
+  try {
+    const { email } = req.body;
+    const result = await pool.query('SELECT id FROM users WHERE email = $1 AND is_active = true', [email]);
+    if (result.rowCount === 0) return; // account not found — already responded
+
+    const token  = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await pool.query(
+      'UPDATE users SET reset_token = $1, reset_token_exp = $2 WHERE id = $3',
+      [token, expiry, result.rows[0].id]
+    );
+
+    const resetUrl = `${process.env.APP_URL || 'https://vtos.vercel.app'}/reset-password.html?token=${token}`;
+    await sendPasswordReset(email, resetUrl);
+  } catch (err) {
+    console.error('[Auth] Forgot password error:', err.message);
+  }
+});
+
+// ── POST /api/auth/reset-password ────────────────────
+router.post('/reset-password', [
+  body('token').notEmpty(),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  const { token, password } = req.body;
+
+  try {
+    const result = await pool.query(
+      'SELECT id FROM users WHERE reset_token = $1 AND reset_token_exp > NOW()',
+      [token]
+    );
+    if (result.rowCount === 0) {
+      return res.status(400).json({ error: 'Reset link is invalid or has expired.' });
+    }
+
+    const hash = await bcrypt.hash(password, 12);
+    await pool.query(
+      'UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_exp = NULL WHERE id = $2',
+      [hash, result.rows[0].id]
+    );
+
+    res.json({ message: 'Password reset successfully. You can now log in.' });
+  } catch (err) {
+    console.error('[Auth] Reset password error:', err.message);
+    res.status(500).json({ error: 'Reset failed. Please try again.' });
   }
 });
 

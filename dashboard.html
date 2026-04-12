@@ -97,13 +97,25 @@
     .auth-box h2 { font-size: 1.4rem; font-weight: 700; margin: 1rem 0 .5rem; }
     .auth-box p  { color: var(--muted); font-size: .875rem; margin-bottom: 1.75rem; }
 
+    /* Mobile bottom nav */
+    .mob-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); z-index: 100; padding: .4rem 0 .5rem; }
+    .mob-nav-inner { display: flex; justify-content: space-around; }
+    .mob-btn { display: flex; flex-direction: column; align-items: center; gap: .2rem; background: none; border: none; color: var(--muted); font-size: .62rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding: .3rem .5rem; cursor: pointer; transition: color .2s; min-width: 56px; }
+    .mob-btn svg { width: 20px; height: 20px; }
+    .mob-btn.active, .mob-btn:hover { color: var(--green); }
+
     @media (max-width: 900px) {
       .dash-layout { grid-template-columns: 1fr; }
       .dash-sidebar { display: none; }
       .overview-grid { grid-template-columns: 1fr 1fr; }
+      .mob-nav { display: block; }
+      .dash-main { padding-bottom: 5rem; }
     }
     @media (max-width: 540px) {
       .overview-grid { grid-template-columns: 1fr; }
+      .dash-main { padding: 1.25rem 1rem 5rem; }
+      .data-table th, .data-table td { padding: .6rem .75rem; }
+      .profile-card { padding: 1.25rem; }
     }
   </style>
 </head>
@@ -132,6 +144,7 @@
           </div>
         </div>
         <button type="submit" class="btn-primary btn-full" id="gateLoginBtn" style="margin-top:.5rem">Sign In</button>
+        <p style="text-align:center;margin-top:.75rem"><a href="/reset-password.html" style="font-size:.82rem;color:var(--muted);text-decoration:none" onmouseover="this.style.color='#39FF14'" onmouseout="this.style.color='var(--muted)'">Forgot password?</a></p>
       </form>
       <p style="text-align:center;font-size:.85rem;color:var(--muted);margin-top:1.25rem">
         No account? <a href="index.html" style="color:var(--green)">Create one on our homepage</a>
@@ -651,6 +664,47 @@
     }
 
     boot();
+  </script>
+
+  <!-- ── Mobile bottom nav (visible < 900px) ── -->
+  <nav class="mob-nav" id="mobNav" style="display:none">
+    <div class="mob-nav-inner">
+      <button class="mob-btn active" id="mob-overview" onclick="showPage('overview');setMobActive('mob-overview')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Overview
+      </button>
+      <button class="mob-btn" id="mob-courier" onclick="showPage('courier');setMobActive('mob-courier')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3"/><rect x="9" y="11" width="14" height="10" rx="2"/><circle cx="12" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg>
+        Courier
+      </button>
+      <button class="mob-btn" id="mob-quotes" onclick="showPage('quotes');setMobActive('mob-quotes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Quotes
+      </button>
+      <button class="mob-btn" id="mob-profile" onclick="showPage('profile');setMobActive('mob-profile')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Profile
+      </button>
+    </div>
+  </nav>
+
+  <script>
+    function setMobActive(id) {
+      document.querySelectorAll('.mob-btn').forEach(b => b.classList.remove('active'));
+      const el = document.getElementById(id);
+      if (el) el.classList.add('active');
+    }
+    // Show mobile nav when dashboard loads
+    const _origShowDash = window.showDash;
+    document.addEventListener('DOMContentLoaded', () => {
+      const mn = document.getElementById('mobNav');
+      if (mn && window.innerWidth <= 900) mn.style.display = 'block';
+    });
+    window.addEventListener('resize', () => {
+      const mn = document.getElementById('mobNav');
+      if (!mn) return;
+      mn.style.display = window.innerWidth <= 900 ? 'block' : 'none';
+    });
   </script>
 </body>
 </html>

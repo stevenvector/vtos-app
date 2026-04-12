@@ -2,6 +2,7 @@ const express = require('express');
 const { body, query, validationResult } = require('express-validator');
 const pool    = require('../db/connection');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { notifyAdminNewQuote, confirmClientQuote } = require('../services/email');
 
 const router = express.Router();
 
@@ -30,9 +31,15 @@ router.post('/', [
       [name, company || null, email, phone || null, service, budget || null, description, wants_consult ?? false, userId]
     );
 
+    const quote = result.rows[0];
+
+    // Fire-and-forget emails — don't block the response
+    notifyAdminNewQuote({ ...quote, description, phone: phone || null, wants_consult: wants_consult ?? false, budget: budget || null }).catch(() => {});
+    confirmClientQuote({ ...quote, description, phone: phone || null, wants_consult: wants_consult ?? false, budget: budget || null }).catch(() => {});
+
     res.status(201).json({
       message: 'Quote request received. We will get back to you within 24 hours.',
-      quote: result.rows[0],
+      quote,
     });
   } catch (err) {
     console.error('[Quotes] Submit error:', err.message);
