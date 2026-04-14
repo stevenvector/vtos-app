@@ -5,9 +5,47 @@
 const API = '/api';
 
 let adminToken = localStorage.getItem('vtos_admin_token');
-let currentQuoteId   = null;
-let currentCourierId = null;
+let currentQuoteId     = null;
+let currentCourierId   = null;
 let editingPortfolioId = null;
+let editingUserId      = null;
+let currentProposalId  = null;
+let lineItemCounter    = 0;
+
+const SERVICE_TEMPLATES = {
+  'Website Design': [
+    { desc: 'UI/UX Design & Wireframing',      qty: 1, price: 3500 },
+    { desc: 'Responsive Frontend Development', qty: 1, price: 5500 },
+    { desc: 'CMS Integration',                 qty: 1, price: 2000 },
+    { desc: 'Domain & Hosting Setup',          qty: 1, price:  500 },
+  ],
+  'Web Application': [
+    { desc: 'System Architecture & Database Design', qty: 1, price: 4000 },
+    { desc: 'Backend API Development',               qty: 1, price: 7500 },
+    { desc: 'Frontend Dashboard Development',        qty: 1, price: 6000 },
+    { desc: 'Authentication & Security',             qty: 1, price: 2500 },
+    { desc: 'Testing & Deployment',                  qty: 1, price: 1500 },
+  ],
+  'E-Commerce': [
+    { desc: 'Store Design & Branding',       qty: 1, price: 4500 },
+    { desc: 'Product Catalogue Setup',       qty: 1, price: 2000 },
+    { desc: 'Payment Gateway Integration',   qty: 1, price: 2500 },
+    { desc: 'Shopping Cart & Checkout',      qty: 1, price: 3000 },
+    { desc: 'Admin Dashboard',               qty: 1, price: 2000 },
+  ],
+  'Hardware Repair': [
+    { desc: 'Diagnostic Assessment',         qty: 1, price:  350 },
+    { desc: 'Parts & Labour',                qty: 1, price:  800 },
+    { desc: 'Data Backup & Recovery',        qty: 1, price:  500 },
+    { desc: 'Quality Check & Testing',       qty: 1, price:  200 },
+  ],
+  'IT Support': [
+    { desc: 'On-site Assessment (per hour)', qty: 2, price:  450 },
+    { desc: 'Software Configuration',        qty: 1, price:  600 },
+    { desc: 'Network Setup',                 qty: 1, price:  800 },
+    { desc: 'Documentation & Training',      qty: 1, price:  500 },
+  ],
+};
 
 // ── Boot ─────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
@@ -117,11 +155,12 @@ function showPage(name) {
   if (btn)  btn.classList.add('active');
 
   switch (name) {
-    case 'dashboard': loadDashboard(); break;
-    case 'quotes':    loadQuotes();    break;
-    case 'courier':   loadCourier();   break;
-    case 'portfolio': loadPortfolio(); break;
-    case 'users':     loadUsers();     break;
+    case 'dashboard': loadDashboard();  break;
+    case 'quotes':    loadQuotes();     break;
+    case 'courier':   loadCourier();    break;
+    case 'portfolio': loadPortfolio();  break;
+    case 'users':     loadUsers();      break;
+    case 'proposals': loadProposals();  break;
   }
 }
 
@@ -565,6 +604,7 @@ async function loadUsers() {
             <th>Name</th>
             <th>Email</th>
             <th>Phone</th>
+            <th>Role</th>
             <th>Status</th>
             <th>Joined</th>
             <th>Actions</th>
@@ -577,12 +617,15 @@ async function loadUsers() {
               <td class="td-name">${esc(u.first_name)} ${esc(u.last_name)}</td>
               <td class="td-muted">${esc(u.email)}</td>
               <td class="td-muted">${u.phone ? `<a href="https://wa.me/${u.phone.replace(/\D/g,'')}" target="_blank" style="color:#25d366">${esc(u.phone)}</a>` : '–'}</td>
+              <td><span class="badge badge-${u.role === 'admin' ? 'new' : 'contacted'}">${u.role}</span></td>
               <td><span class="badge ${u.is_active ? 'badge-converted' : 'badge-closed'}">${u.is_active ? 'Active' : 'Disabled'}</span></td>
               <td class="td-date">${formatDate(u.created_at)}</td>
               <td class="td-actions">
+                <button class="btn-outline btn-sm" onclick="openUserModal(${u.id})">Edit</button>
                 <button class="btn-outline ${u.is_active ? 'danger' : 'success'} btn-sm" onclick="toggleUser(${u.id})">
                   ${u.is_active ? 'Disable' : 'Enable'}
                 </button>
+                <button class="btn-outline danger btn-sm" onclick="deleteUser(${u.id},'${esc(u.first_name)} ${esc(u.last_name)}',event)">Delete</button>
               </td>
             </tr>`).join('')}
         </tbody>
@@ -596,6 +639,346 @@ async function loadUsers() {
 async function toggleUser(id) {
   await apiFetch(`/admin/users/${id}/toggle`, { method: 'PATCH' });
   loadUsers();
+}
+
+function openUserModal(id = null) {
+  editingUserId = id;
+  const modal = document.getElementById('userModal');
+  document.getElementById('um-feedback').classList.add('hidden');
+  document.getElementById('um-title').textContent = id ? 'Edit User' : 'New User';
+  document.getElementById('um-pw-label').textContent = id
+    ? 'New Password (leave blank to keep current)'
+    : 'Password *';
+  document.getElementById('um-password').required = !id;
+
+  if (id) {
+    apiFetch('/admin/users?limit=200').then(r => r.json()).then(data => {
+      const u = data.users?.find(u => u.id === id);
+      if (!u) return;
+      document.getElementById('um-fname').value    = u.first_name;
+      document.getElementById('um-lname').value    = u.last_name;
+      document.getElementById('um-email').value    = u.email;
+      document.getElementById('um-phone').value    = u.phone || '';
+      document.getElementById('um-role').value     = u.role;
+      document.getElementById('um-active').checked = u.is_active;
+      document.getElementById('um-password').value = '';
+    });
+  } else {
+    document.querySelector('#userModal form').reset();
+    document.getElementById('um-active').checked = true;
+    document.getElementById('um-role').value = 'client';
+  }
+  modal.classList.add('open');
+}
+
+async function saveUser(e) {
+  e.preventDefault();
+  const btn = document.querySelector('#userModal .btn-g');
+  const fb  = document.getElementById('um-feedback');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  fb.classList.add('hidden');
+
+  const payload = {
+    first_name: document.getElementById('um-fname').value,
+    last_name:  document.getElementById('um-lname').value,
+    email:      document.getElementById('um-email').value,
+    phone:      document.getElementById('um-phone').value || null,
+    role:       document.getElementById('um-role').value,
+    is_active:  document.getElementById('um-active').checked,
+  };
+  const pw = document.getElementById('um-password').value;
+  if (pw) payload.password = pw;
+
+  try {
+    const res = editingUserId
+      ? await apiFetch(`/admin/users/${editingUserId}`, { method: 'PUT',  body: JSON.stringify(payload) })
+      : await apiFetch('/admin/users',                  { method: 'POST', body: JSON.stringify(payload) });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.errors?.[0]?.msg || err.error || 'Save failed');
+    }
+
+    fb.className = 'success-msg';
+    fb.textContent = editingUserId ? 'User updated!' : 'User created!';
+    fb.classList.remove('hidden');
+    loadUsers();
+    refreshStats();
+    setTimeout(() => document.getElementById('userModal').classList.remove('open'), 700);
+  } catch (err) {
+    fb.className = 'error-msg';
+    fb.textContent = err.message || 'Save failed.';
+    fb.classList.remove('hidden');
+  } finally {
+    btn.textContent = 'Save User'; btn.disabled = false;
+  }
+}
+
+async function deleteUser(id, name, e) {
+  e.stopPropagation();
+  if (!confirm(`Delete user "${name}"?\n\nThis is permanent and will remove all their data.`)) return;
+  try {
+    const res = await apiFetch(`/admin/users/${id}`, { method: 'DELETE' });
+    if (!res.ok) { const d = await res.json(); alert(d.error || 'Delete failed.'); return; }
+    loadUsers();
+    refreshStats();
+  } catch { alert('Delete failed.'); }
+}
+
+// ── Proposals ─────────────────────────────────────────
+async function loadProposals() {
+  const status = document.getElementById('proposalStatusFilter')?.value || '';
+  const el = document.getElementById('proposalsTable');
+  el.innerHTML = '<div class="empty-state">Loading...</div>';
+
+  try {
+    const res  = await apiFetch(`/proposals?${status ? `status=${status}&` : ''}limit=100`);
+    const data = await res.json();
+
+    if (!data.proposals?.length) {
+      el.innerHTML = emptyState('No proposals yet. Create your first quote!');
+      return;
+    }
+
+    el.innerHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Quote #</th>
+            <th>Client</th>
+            <th>Title</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Valid Until</th>
+            <th>Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.proposals.map(p => `
+            <tr onclick="openProposalModal(${p.id})">
+              <td><code style="color:var(--green);font-size:.78rem">${esc(p.quote_number)}</code></td>
+              <td>
+                <div class="td-name">${esc(p.client_name)}</div>
+                <div class="td-muted">${esc(p.client_email)}</div>
+              </td>
+              <td>${esc(p.title)}</td>
+              <td style="font-weight:700;color:var(--green)">R ${parseFloat(p.total).toFixed(2)}</td>
+              <td><span class="badge badge-${p.status}">${p.status}</span></td>
+              <td class="td-date">${p.valid_until ? formatDate(p.valid_until) : '–'}</td>
+              <td class="td-date">${formatDate(p.created_at)}</td>
+              <td>
+                <button class="btn-outline danger btn-sm" onclick="deleteProposal(${p.id},event)">Delete</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="padding:.75rem 1rem;font-size:.8rem;color:var(--muted)">${data.total} total proposals</div>`;
+  } catch {
+    el.innerHTML = errorState('Failed to load proposals');
+  }
+}
+
+async function openProposalModal(id = null) {
+  currentProposalId = id;
+  document.getElementById('prm-items').innerHTML = '';
+  lineItemCounter = 0;
+  document.getElementById('prm-feedback').classList.add('hidden');
+
+  if (id) {
+    document.getElementById('prm-modal-title').textContent = 'Edit Proposal';
+    try {
+      const res = await apiFetch(`/proposals/${id}`);
+      const p   = await res.json();
+      document.getElementById('prm-title').value    = p.title;
+      document.getElementById('prm-cname').value    = p.client_name;
+      document.getElementById('prm-cemail').value   = p.client_email;
+      document.getElementById('prm-ccompany').value = p.client_company || '';
+      document.getElementById('prm-valid').value    = p.valid_until ? p.valid_until.split('T')[0] : '';
+      document.getElementById('prm-status').value   = p.status;
+      document.getElementById('prm-discount').value = parseFloat(p.discount) || 0;
+      document.getElementById('prm-tax').value      = parseFloat(p.tax_rate) || 15;
+      document.getElementById('prm-notes').value    = p.notes || '';
+
+      const items = Array.isArray(p.items) ? p.items : JSON.parse(p.items || '[]');
+      items.forEach(item => addLineItem(item.description, item.quantity, item.unit_price));
+
+      await loadLeadOptions(p.lead_id);
+    } catch {
+      document.getElementById('prm-feedback').className = 'error-msg';
+      document.getElementById('prm-feedback').textContent = 'Failed to load proposal.';
+      document.getElementById('prm-feedback').classList.remove('hidden');
+    }
+  } else {
+    document.getElementById('prm-modal-title').textContent = 'New Proposal';
+    document.getElementById('prm-title').value    = '';
+    document.getElementById('prm-cname').value    = '';
+    document.getElementById('prm-cemail').value   = '';
+    document.getElementById('prm-ccompany').value = '';
+    document.getElementById('prm-valid').value    = '';
+    document.getElementById('prm-status').value   = 'draft';
+    document.getElementById('prm-discount').value = '0';
+    document.getElementById('prm-tax').value      = '15';
+    document.getElementById('prm-notes').value    = '';
+    addLineItem();
+    await loadLeadOptions(null);
+  }
+
+  recalcTotals();
+  document.getElementById('proposalModal').classList.add('open');
+}
+
+async function loadLeadOptions(selectedLeadId = null) {
+  const select = document.getElementById('prm-lead');
+  select.innerHTML = '<option value="">— Not linked to a lead —</option>';
+  try {
+    const res  = await apiFetch('/quotes?limit=200');
+    const data = await res.json();
+    (data.quotes || []).forEach(q => {
+      const opt = document.createElement('option');
+      opt.value       = q.id;
+      opt.textContent = `#${q.id} — ${q.name} (${q.service})`;
+      if (selectedLeadId && q.id === selectedLeadId) opt.selected = true;
+      select.appendChild(opt);
+    });
+  } catch { /* lead linking is optional — fail silently */ }
+}
+
+function fillClientFromLead() {
+  const leadId = document.getElementById('prm-lead').value;
+  if (!leadId) return;
+  apiFetch(`/quotes/${leadId}`).then(r => r.json()).then(q => {
+    document.getElementById('prm-cname').value    = q.name    || '';
+    document.getElementById('prm-cemail').value   = q.email   || '';
+    document.getElementById('prm-ccompany').value = q.company || '';
+    if (!document.getElementById('prm-title').value) {
+      document.getElementById('prm-title').value  = q.service || '';
+    }
+  }).catch(() => {});
+}
+
+function addLineItem(desc = '', qty = 1, price = 0) {
+  const id    = ++lineItemCounter;
+  const tbody = document.getElementById('prm-items');
+  const tr    = document.createElement('tr');
+  tr.id = `li-${id}`;
+  tr.innerHTML = `
+    <td><input type="text"   class="li-desc"  style="width:100%" placeholder="Service or item description" value="${esc(String(desc))}" oninput="recalcTotals()" /></td>
+    <td><input type="number" class="li-qty"   style="width:100%" value="${qty}"   min="0.01" step="0.5"  oninput="recalcTotals()" /></td>
+    <td><input type="number" class="li-price" style="width:100%" value="${price}" min="0"    step="0.01" oninput="recalcTotals()" /></td>
+    <td class="li-total-val">R 0.00</td>
+    <td style="text-align:center">
+      <button type="button" onclick="removeLineItem('li-${id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:.2rem .4rem" title="Remove">✕</button>
+    </td>`;
+  tbody.appendChild(tr);
+  recalcTotals();
+}
+
+function removeLineItem(rowId) {
+  const row = document.getElementById(rowId);
+  if (row) row.remove();
+  recalcTotals();
+}
+
+function recalcTotals() {
+  let subtotal = 0;
+  document.querySelectorAll('#prm-items tr').forEach(row => {
+    const qty   = parseFloat(row.querySelector('.li-qty')?.value)   || 0;
+    const price = parseFloat(row.querySelector('.li-price')?.value) || 0;
+    const line  = qty * price;
+    subtotal   += line;
+    const cell  = row.querySelector('.li-total-val');
+    if (cell) cell.textContent = `R ${line.toFixed(2)}`;
+  });
+
+  const discount = parseFloat(document.getElementById('prm-discount')?.value) || 0;
+  const taxRate  = parseFloat(document.getElementById('prm-tax')?.value)      || 0;
+  const taxAmt   = (subtotal - discount) * (taxRate / 100);
+  const total    = subtotal - discount + taxAmt;
+
+  const s = document.getElementById('prm-subtotal');
+  const t = document.getElementById('prm-tax-display');
+  const g = document.getElementById('prm-total-display');
+  if (s) s.textContent = `R ${subtotal.toFixed(2)}`;
+  if (t) t.textContent = `R ${taxAmt.toFixed(2)}`;
+  if (g) g.textContent = `R ${total.toFixed(2)}`;
+}
+
+function applyTemplate(name) {
+  const items = SERVICE_TEMPLATES[name];
+  if (!items) return;
+  document.getElementById('prm-items').innerHTML = '';
+  lineItemCounter = 0;
+  items.forEach(i => addLineItem(i.desc, i.qty, i.price));
+  recalcTotals();
+}
+
+async function saveProposal(e) {
+  e.preventDefault();
+  const btn = document.querySelector('#proposalModal .save-btn');
+  const fb  = document.getElementById('prm-feedback');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  fb.classList.add('hidden');
+
+  const items = [];
+  document.querySelectorAll('#prm-items tr').forEach(row => {
+    const desc  = row.querySelector('.li-desc')?.value?.trim() || '';
+    const qty   = parseFloat(row.querySelector('.li-qty')?.value)   || 1;
+    const price = parseFloat(row.querySelector('.li-price')?.value) || 0;
+    if (desc) items.push({ description: desc, quantity: qty, unit_price: price });
+  });
+
+  if (!items.length) {
+    fb.className = 'error-msg';
+    fb.textContent = 'Please add at least one line item.';
+    fb.classList.remove('hidden');
+    btn.textContent = 'Save Proposal'; btn.disabled = false;
+    return;
+  }
+
+  const payload = {
+    title:          document.getElementById('prm-title').value,
+    client_name:    document.getElementById('prm-cname').value,
+    client_email:   document.getElementById('prm-cemail').value,
+    client_company: document.getElementById('prm-ccompany').value || null,
+    lead_id:        document.getElementById('prm-lead').value     || null,
+    valid_until:    document.getElementById('prm-valid').value    || null,
+    status:         document.getElementById('prm-status').value,
+    items,
+    notes:    document.getElementById('prm-notes').value    || null,
+    discount: parseFloat(document.getElementById('prm-discount').value) || 0,
+    tax_rate: parseFloat(document.getElementById('prm-tax').value)      || 0,
+  };
+
+  try {
+    const res = currentProposalId
+      ? await apiFetch(`/proposals/${currentProposalId}`, { method: 'PATCH', body: JSON.stringify(payload) })
+      : await apiFetch('/proposals',                       { method: 'POST',  body: JSON.stringify(payload) });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.errors?.[0]?.msg || err.error || 'Save failed');
+    }
+
+    fb.className = 'success-msg';
+    fb.textContent = currentProposalId ? 'Proposal updated!' : 'Proposal created!';
+    fb.classList.remove('hidden');
+    loadProposals();
+    setTimeout(() => document.getElementById('proposalModal').classList.remove('open'), 700);
+  } catch (err) {
+    fb.className = 'error-msg';
+    fb.textContent = err.message || 'Save failed.';
+    fb.classList.remove('hidden');
+  } finally {
+    btn.textContent = 'Save Proposal'; btn.disabled = false;
+  }
+}
+
+async function deleteProposal(id, e) {
+  e.stopPropagation();
+  if (!confirm('Delete this proposal? This cannot be undone.')) return;
+  await apiFetch(`/proposals/${id}`, { method: 'DELETE' });
+  loadProposals();
 }
 
 // ── Modal helpers ─────────────────────────────────────

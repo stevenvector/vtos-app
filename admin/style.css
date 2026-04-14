@@ -584,6 +584,52 @@ select option { background: var(--surface); }
 .toggle-label input:checked ~ .toggle-custom { background: var(--green-dim); }
 .toggle-label input:checked ~ .toggle-custom::after { transform: translateX(16px); background: var(--green); }
 
+/* ── Extra-wide modal for proposal builder ───────── */
+.modal-xl { max-width: 860px; }
+
+/* ── Proposal status badges ──────────────────────── */
+.badge-draft    { background: rgba(255,255,255,.06); color: var(--muted); border: 1px solid var(--border); }
+.badge-sent     { background: var(--blue-dim); color: #4FC3F7; border: 1px solid rgba(30,111,217,.3); }
+.badge-accepted { background: rgba(57,255,20,.15); color: #9fff9f; border: 1px solid rgba(57,255,20,.4); }
+.badge-declined { background: rgba(255,80,80,.1); color: #ff8080; border: 1px solid rgba(255,80,80,.3); }
+.badge-expired  { background: rgba(255,255,255,.05); color: var(--muted); border: 1px solid var(--border); }
+
+/* ── Line items table (inside proposal modal) ────── */
+.li-table { width: 100%; border-collapse: collapse; margin-bottom: .75rem; }
+.li-table th {
+  text-align: left;
+  font-size: .7rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted);
+  padding: .4rem .5rem; border-bottom: 1px solid var(--border);
+}
+.li-table td { padding: .35rem .5rem; vertical-align: middle; }
+.li-table input { padding: .45rem .6rem; font-size: .82rem; }
+.li-table .li-desc  { width: 100%; }
+.li-table .li-qty   { width: 70px; }
+.li-table .li-price { width: 110px; }
+.li-total-val { font-weight: 600; color: var(--green); white-space: nowrap; font-size: .875rem; }
+
+/* ── Proposal totals summary ─────────────────────── */
+.proposal-totals {
+  background: var(--surface); border-radius: var(--radius-sm);
+  padding: .9rem 1rem; margin-top: .75rem;
+  display: grid; grid-template-columns: 1fr auto; gap: .3rem .75rem;
+  font-size: .875rem;
+}
+.proposal-totals .tot-label { color: var(--muted); }
+.proposal-totals .tot-val   { text-align: right; font-weight: 600; }
+.proposal-totals .tot-grand { color: var(--green); font-size: 1.05rem; font-weight: 800; }
+
+/* ── Template pill buttons ───────────────────────── */
+.template-pills { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.template-pill  {
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--muted); font-size: .75rem; font-weight: 600;
+  padding: .3rem .75rem; border-radius: 100px; cursor: pointer;
+  transition: var(--tr);
+}
+.template-pill:hover { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+
 /* ── Responsive ──────────────────────────────────── */
 @media (max-width: 1100px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }

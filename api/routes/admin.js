@@ -1,4 +1,6 @@
 const express = require('express');
+const { body, validationResult } = require('express-validator');
+const bcrypt  = require('bcryptjs');
 const pool    = require('../db/connection');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
@@ -66,6 +68,101 @@ router.get('/users', async (req, res) => {
     res.json({ users: result.rows, total: parseInt(count.rows[0].count) });
   } catch (err) {
     res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── POST /api/admin/users — create user ──────────────
+router.post('/users', [
+  body('first_name').trim().notEmpty().withMessage('First name is required'),
+  body('last_name').trim().notEmpty().withMessage('Last name is required'),
+  body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  body('phone').optional().trim(),
+  body('role').optional().isIn(['client', 'admin']).withMessage('Invalid role'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  const { first_name, last_name, email, password, phone, role = 'client' } = req.body;
+  try {
+    const exists = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (exists.rowCount > 0) return res.status(409).json({ error: 'Email already in use.' });
+
+    const password_hash = await bcrypt.hash(password, 12);
+    const result = await pool.query(
+      `INSERT INTO users (first_name, last_name, email, phone, password_hash, role)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       RETURNING id, first_name, last_name, email, phone, role, is_active, created_at`,
+      [first_name, last_name, email, phone || null, password_hash, role]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('[Admin] Create user error:', err.message);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── PUT /api/admin/users/:id — update user ────────────
+router.put('/users/:id', [
+  body('first_name').optional().trim().notEmpty().withMessage('First name cannot be empty'),
+  body('last_name').optional().trim().notEmpty().withMessage('Last name cannot be empty'),
+  body('email').optional().isEmail().normalizeEmail().withMessage('Valid email required'),
+  body('phone').optional().trim(),
+  body('role').optional().isIn(['client', 'admin']).withMessage('Invalid role'),
+  body('is_active').optional().isBoolean(),
+  body('password').optional().isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  const { first_name, last_name, email, phone, role, is_active, password } = req.body;
+
+  try {
+    const updates = [];
+    const vals    = [];
+    let idx = 1;
+
+    if (first_name !== undefined) { updates.push(`first_name = $${idx++}`); vals.push(first_name); }
+    if (last_name  !== undefined) { updates.push(`last_name = $${idx++}`);  vals.push(last_name); }
+    if (email      !== undefined) { updates.push(`email = $${idx++}`);      vals.push(email); }
+    if (phone      !== undefined) { updates.push(`phone = $${idx++}`);      vals.push(phone || null); }
+    if (role       !== undefined) { updates.push(`role = $${idx++}`);       vals.push(role); }
+    if (is_active  !== undefined) { updates.push(`is_active = $${idx++}`);  vals.push(is_active); }
+    if (password) {
+      const hash = await bcrypt.hash(password, 12);
+      updates.push(`password_hash = $${idx++}`);
+      vals.push(hash);
+    }
+
+    if (updates.length === 0) return res.status(400).json({ error: 'No fields to update.' });
+
+    vals.push(req.params.id);
+    const result = await pool.query(
+      `UPDATE users SET ${updates.join(', ')} WHERE id = $${idx}
+       RETURNING id, first_name, last_name, email, phone, role, is_active, created_at`,
+      vals
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'User not found.' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('[Admin] Update user error:', err.message);
+    if (err.code === '23505') return res.status(409).json({ error: 'Email already in use.' });
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── DELETE /api/admin/users/:id ───────────────────────
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `DELETE FROM users WHERE id = $1 AND role != 'admin' RETURNING id`,
+      [req.params.id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'User not found or protected.' });
+    res.json({ message: 'User deleted.' });
+  } catch (err) {
+    console.error('[Admin] Delete user error:', err.message);
+    res.status(500).json({ error: 'Delete failed.' });
   }
 });
 

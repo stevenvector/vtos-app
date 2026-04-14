@@ -30,7 +30,7 @@
     .page-hdr p    { color: var(--muted); font-size: .875rem; margin-top: .25rem; }
 
     /* Overview cards */
-    .overview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 2rem; }
+    .overview-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; margin-bottom: 2rem; }
     .ov-card       { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1rem; }
     .ov-icon       { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .ov-val        { font-size: 1.8rem; font-weight: 800; line-height: 1; }
@@ -103,6 +103,13 @@
     .mob-btn { display: flex; flex-direction: column; align-items: center; gap: .2rem; background: none; border: none; color: var(--muted); font-size: .62rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding: .3rem .5rem; cursor: pointer; transition: color .2s; min-width: 56px; }
     .mob-btn svg { width: 20px; height: 20px; }
     .mob-btn.active, .mob-btn:hover { color: var(--green); }
+
+    /* Proposal status badges */
+    .b-draft    { background: rgba(255,255,255,.06); color: var(--muted); border: 1px solid rgba(255,255,255,.1); }
+    .b-sent     { background: rgba(30,111,217,.15); color: #4FC3F7; border: 1px solid rgba(30,111,217,.3); }
+    .b-accepted { background: rgba(57,255,20,.15); color: #9fff9f; border: 1px solid rgba(57,255,20,.4); }
+    .b-declined { background: rgba(255,80,80,.1); color: #ff8080; border: 1px solid rgba(255,80,80,.3); }
+    .b-expired  { background: rgba(255,255,255,.05); color: var(--muted); border: 1px solid rgba(255,255,255,.07); }
 
     @media (max-width: 900px) {
       .dash-layout { grid-template-columns: 1fr; }
@@ -183,6 +190,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
           My Quotes
         </button>
+        <button class="sb-link" data-page="proposals" onclick="showPage('proposals')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Proposals
+        </button>
         <button class="sb-link" data-page="profile" onclick="showPage('profile')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           My Profile
@@ -235,6 +246,15 @@
             <div>
               <div class="ov-val" id="ov-active" style="color:#ffb400">–</div>
               <div class="ov-lbl">Active Jobs</div>
+            </div>
+          </div>
+          <div class="ov-card" style="cursor:pointer" onclick="showPage('proposals')">
+            <div class="ov-icon" style="background:rgba(155,89,182,.12);color:#c39bd3">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <div>
+              <div class="ov-val" id="ov-proposals" style="color:#c39bd3">–</div>
+              <div class="ov-lbl">Proposals</div>
             </div>
           </div>
         </div>
@@ -311,6 +331,17 @@
         </div>
         <div class="data-card">
           <div id="quotesList"></div>
+        </div>
+      </section>
+
+      <!-- ── Proposals ── -->
+      <section id="page-proposals" class="dash-page">
+        <div class="page-hdr">
+          <h2>My Proposals</h2>
+          <p>Formal quotes prepared by VTOS for your projects</p>
+        </div>
+        <div class="data-card">
+          <div id="proposalsList"></div>
         </div>
       </section>
 
@@ -461,21 +492,24 @@
       const btn  = document.querySelector(`[data-page="${name}"]`);
       if (page) page.classList.add('active');
       if (btn)  btn.classList.add('active');
-      if (name === 'courier') loadCourierList();
-      if (name === 'quotes')  loadQuotesList();
+      if (name === 'courier')   loadCourierList();
+      if (name === 'quotes')    loadQuotesList();
+      if (name === 'proposals') loadProposalsList();
     }
 
     async function loadOverview() {
-      const [courierRes, quotesRes] = await Promise.all([
-        apiFetch('/courier/my'), apiFetch('/quotes/my'),
+      const [courierRes, quotesRes, proposalsRes] = await Promise.all([
+        apiFetch('/courier/my'), apiFetch('/quotes/my'), apiFetch('/proposals/client/my'),
       ]);
-      const couriers = courierRes.ok ? await courierRes.json() : [];
-      const quotes   = quotesRes.ok  ? await quotesRes.json()  : [];
+      const couriers  = courierRes.ok   ? await courierRes.json()   : [];
+      const quotes    = quotesRes.ok    ? await quotesRes.json()    : [];
+      const proposals = proposalsRes.ok ? await proposalsRes.json() : [];
 
       const active = couriers.filter(c => !['returned','closed'].includes(c.status)).length;
-      document.getElementById('ov-courier').textContent = couriers.length;
-      document.getElementById('ov-quotes').textContent  = quotes.length;
-      document.getElementById('ov-active').textContent  = active;
+      document.getElementById('ov-courier').textContent   = couriers.length;
+      document.getElementById('ov-quotes').textContent    = quotes.length;
+      document.getElementById('ov-active').textContent    = active;
+      document.getElementById('ov-proposals').textContent = proposals.length;
 
       const cList = document.getElementById('ov-courier-list');
       cList.innerHTML = couriers.slice(0,4).map(c => `
@@ -606,6 +640,46 @@
                 <td>${q.wants_consult ? '<span style="color:var(--green);font-size:.82rem">Yes</span>' : '<span style="color:var(--muted);font-size:.82rem">No</span>'}</td>
                 <td><span class="badge b-${q.status}">${q.status}</span></td>
                 <td style="color:var(--muted);font-size:.78rem;white-space:nowrap">${fmtDate(q.created_at)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    async function loadProposalsList() {
+      const el = document.getElementById('proposalsList');
+      el.innerHTML = '<div class="empty-row">Loading...</div>';
+      const res  = await apiFetch('/proposals/client/my');
+      const data = res.ok ? await res.json() : [];
+
+      if (!data.length) {
+        el.innerHTML = `<div style="text-align:center;padding:3rem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" width="40" height="40" style="opacity:.4;display:block;margin:0 auto .75rem"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+          <p style="color:var(--muted)">No proposals yet. They'll appear here once VTOS prepares a quote for you.</p>
+        </div>`;
+        return;
+      }
+
+      el.innerHTML = `
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Quote #</th>
+              <th>Title</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Valid Until</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(p => `
+              <tr style="cursor:default">
+                <td><code style="color:var(--green);font-size:.82rem">${esc(p.quote_number)}</code></td>
+                <td style="font-weight:600">${esc(p.title)}</td>
+                <td style="font-weight:700;color:var(--green)">R ${parseFloat(p.total).toFixed(2)}</td>
+                <td><span class="badge b-${p.status}">${p.status}</span></td>
+                <td style="color:var(--muted);font-size:.82rem">${p.valid_until ? fmtDate(p.valid_until) : '–'}</td>
+                <td style="color:var(--muted);font-size:.78rem;white-space:nowrap">${fmtDate(p.created_at)}</td>
               </tr>`).join('')}
           </tbody>
         </table>`;

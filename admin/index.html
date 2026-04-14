@@ -86,6 +86,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
           Users
         </button>
+        <button class="sb-link" onclick="showPage('proposals')" data-page="proposals">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+          Quote Builder
+        </button>
       </nav>
 
       <button class="sb-logout" onclick="adminLogout()">
@@ -322,11 +326,183 @@
       <section id="page-users" class="page">
         <div class="page-header">
           <div><h1>Users</h1><p>All registered client accounts</p></div>
+          <button class="btn-g btn-sm" onclick="openUserModal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add User
+          </button>
         </div>
         <div class="card">
           <div id="usersTable">Loading...</div>
         </div>
       </section>
+
+      <!-- ── User Create / Edit Modal ── -->
+      <div class="modal-overlay" id="userModal" onclick="closeModal(event,'userModal')">
+        <div class="modal">
+          <button class="modal-x" onclick="document.getElementById('userModal').classList.remove('open')">✕</button>
+          <h3 id="um-title">New User</h3>
+          <form onsubmit="saveUser(event)">
+            <div class="form-row-2">
+              <div class="fg"><label>First Name *</label><input type="text" id="um-fname" placeholder="James" required /></div>
+              <div class="fg"><label>Last Name *</label><input type="text" id="um-lname" placeholder="Smith" required /></div>
+            </div>
+            <div class="fg"><label>Email *</label><input type="email" id="um-email" placeholder="client@example.com" required /></div>
+            <div class="fg"><label>Phone / WhatsApp</label><input type="tel" id="um-phone" placeholder="+27 XX XXX XXXX" /></div>
+            <div class="form-row-2">
+              <div class="fg">
+                <label>Role *</label>
+                <select id="um-role">
+                  <option value="client">Client</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div class="fg" style="display:flex;align-items:flex-end;padding-bottom:.1rem">
+                <label class="toggle-label" style="margin-bottom:0">
+                  <input type="checkbox" id="um-active" checked />
+                  <span class="toggle-custom"></span>
+                  Active Account
+                </label>
+              </div>
+            </div>
+            <div class="fg" id="um-pw-row">
+              <label id="um-pw-label">Password *</label>
+              <div class="pw-wrap">
+                <input type="password" id="um-password" placeholder="Min 8 characters" />
+                <button type="button" onclick="togglePw('um-password')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+            <div id="um-feedback" class="hidden" style="margin-bottom:1rem"></div>
+            <button type="submit" class="btn-g">Save User</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ── Page: Quote Builder ── -->
+      <section id="page-proposals" class="page">
+        <div class="page-header">
+          <div><h1>Quote Builder</h1><p>Create and manage formal proposals for clients</p></div>
+          <div class="header-actions">
+            <select id="proposalStatusFilter" onchange="loadProposals()">
+              <option value="">All Statuses</option>
+              <option value="draft">Draft</option>
+              <option value="sent">Sent</option>
+              <option value="accepted">Accepted</option>
+              <option value="declined">Declined</option>
+              <option value="expired">Expired</option>
+            </select>
+            <button class="btn-g btn-sm" onclick="openProposalModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New Proposal
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div id="proposalsTable">Loading...</div>
+        </div>
+      </section>
+
+      <!-- ── Proposal Builder Modal ── -->
+      <div class="modal-overlay" id="proposalModal" onclick="closeModal(event,'proposalModal')">
+        <div class="modal modal-xl">
+          <button class="modal-x" onclick="document.getElementById('proposalModal').classList.remove('open')">✕</button>
+          <h3 id="prm-modal-title">New Proposal</h3>
+
+          <form onsubmit="saveProposal(event)">
+
+            <!-- Client details -->
+            <div class="form-row-2">
+              <div class="fg"><label>Client Name *</label><input type="text" id="prm-cname" placeholder="Full name" required /></div>
+              <div class="fg"><label>Client Email *</label><input type="email" id="prm-cemail" placeholder="client@example.com" required /></div>
+            </div>
+            <div class="form-row-2">
+              <div class="fg"><label>Company</label><input type="text" id="prm-ccompany" placeholder="Company name (optional)" /></div>
+              <div class="fg">
+                <label>Link to Lead Query</label>
+                <select id="prm-lead" onchange="fillClientFromLead()">
+                  <option value="">— Not linked to a lead —</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Proposal details -->
+            <div class="fg"><label>Proposal Title *</label><input type="text" id="prm-title" placeholder="e.g. Website Redesign Proposal" required /></div>
+            <div class="form-row-2">
+              <div class="fg">
+                <label>Valid Until</label>
+                <input type="date" id="prm-valid" />
+              </div>
+              <div class="fg">
+                <label>Status</label>
+                <select id="prm-status">
+                  <option value="draft">Draft</option>
+                  <option value="sent">Sent</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="declined">Declined</option>
+                  <option value="expired">Expired</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Service templates -->
+            <div style="margin-bottom:.75rem">
+              <label style="margin-bottom:.5rem">Quick Templates</label>
+              <div class="template-pills">
+                <button type="button" class="template-pill" onclick="applyTemplate('Website Design')">Website Design</button>
+                <button type="button" class="template-pill" onclick="applyTemplate('Web Application')">Web Application</button>
+                <button type="button" class="template-pill" onclick="applyTemplate('E-Commerce')">E-Commerce</button>
+                <button type="button" class="template-pill" onclick="applyTemplate('Hardware Repair')">Hardware Repair</button>
+                <button type="button" class="template-pill" onclick="applyTemplate('IT Support')">IT Support</button>
+              </div>
+            </div>
+
+            <!-- Line items -->
+            <div style="margin-bottom:.5rem;font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Line Items</div>
+            <div style="overflow-x:auto">
+              <table class="li-table">
+                <thead>
+                  <tr>
+                    <th style="min-width:200px">Description</th>
+                    <th style="width:80px">Qty</th>
+                    <th style="width:120px">Unit Price (R)</th>
+                    <th style="width:100px">Total</th>
+                    <th style="width:36px"></th>
+                  </tr>
+                </thead>
+                <tbody id="prm-items"></tbody>
+              </table>
+            </div>
+            <button type="button" onclick="addLineItem()" class="btn-outline btn-sm" style="margin-bottom:1rem">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Line Item
+            </button>
+
+            <!-- Notes -->
+            <div class="fg"><label>Notes / Terms</label><textarea id="prm-notes" rows="3" placeholder="Scope, payment terms, assumptions..."></textarea></div>
+
+            <!-- Discount + Tax -->
+            <div class="form-row-2">
+              <div class="fg"><label>Discount (R)</label><input type="number" id="prm-discount" value="0" min="0" step="0.01" oninput="recalcTotals()" /></div>
+              <div class="fg"><label>Tax Rate (%)</label><input type="number" id="prm-tax" value="15" min="0" max="100" step="0.5" oninput="recalcTotals()" /></div>
+            </div>
+
+            <!-- Totals summary -->
+            <div class="proposal-totals">
+              <span class="tot-label">Subtotal</span>   <span class="tot-val" id="prm-subtotal">R 0.00</span>
+              <span class="tot-label">Tax</span>         <span class="tot-val" id="prm-tax-display">R 0.00</span>
+              <span class="tot-label tot-grand">Total</span> <span class="tot-val tot-grand" id="prm-total-display">R 0.00</span>
+            </div>
+
+            <div id="prm-feedback" class="hidden" style="margin-top:1rem"></div>
+            <div style="display:flex;gap:.75rem;margin-top:1.25rem">
+              <button type="submit" class="btn-g save-btn" style="flex:1">Save Proposal</button>
+              <button type="button" class="btn-outline" style="flex:0 0 auto" onclick="document.getElementById('proposalModal').classList.remove('open')">Cancel</button>
+            </div>
+
+          </form>
+        </div>
+      </div>
 
     </main>
   </div>

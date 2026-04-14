@@ -134,3 +134,36 @@ DO $$ BEGIN
     BEFORE UPDATE ON portfolio_items
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- ── Proposals (Quote Builder) ─────────────────────────
+CREATE TABLE IF NOT EXISTS proposals (
+  id              SERIAL PRIMARY KEY,
+  quote_number    VARCHAR(30)   NOT NULL UNIQUE,
+  lead_id         INT           REFERENCES quotes(id) ON DELETE SET NULL,
+  client_name     VARCHAR(200)  NOT NULL,
+  client_email    VARCHAR(255)  NOT NULL,
+  client_company  VARCHAR(200),
+  title           VARCHAR(300)  NOT NULL,
+  valid_until     DATE,
+  status          VARCHAR(20)   NOT NULL DEFAULT 'draft'
+                  CHECK (status IN ('draft', 'sent', 'accepted', 'declined', 'expired')),
+  items           JSONB         NOT NULL DEFAULT '[]',
+  notes           TEXT,
+  subtotal        NUMERIC(12,2) NOT NULL DEFAULT 0,
+  discount        NUMERIC(12,2) NOT NULL DEFAULT 0,
+  tax_rate        NUMERIC(5,2)  NOT NULL DEFAULT 0,
+  total           NUMERIC(12,2) NOT NULL DEFAULT 0,
+  created_by      INT           REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_proposals_client_email ON proposals(client_email);
+CREATE INDEX IF NOT EXISTS idx_proposals_status       ON proposals(status);
+CREATE INDEX IF NOT EXISTS idx_proposals_lead_id      ON proposals(lead_id);
+
+DO $$ BEGIN
+  CREATE TRIGGER trg_proposals_updated_at
+    BEFORE UPDATE ON proposals
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
