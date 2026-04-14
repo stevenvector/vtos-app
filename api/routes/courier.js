@@ -57,13 +57,17 @@ router.post('/', requireAuth, [
     const booking = result.rows[0];
     booking.status_label = STATUS_LABELS[booking.status];
 
-    // Fetch user details for email, fire-and-forget
-    pool.query('SELECT first_name, last_name, email FROM users WHERE id = $1', [req.user.id])
-      .then(u => {
-        const user = u.rows[0];
-        notifyAdminNewCourier(booking, user).catch(() => {});
-        confirmClientCourier(booking, user).catch(() => {});
-      }).catch(() => {});
+    // Fetch user and await emails before responding — required for Vercel serverless
+    try {
+      const userRes = await pool.query('SELECT first_name, last_name, email FROM users WHERE id = $1', [req.user.id]);
+      const user = userRes.rows[0];
+      await Promise.allSettled([
+        notifyAdminNewCourier(booking, user),
+        confirmClientCourier(booking, user),
+      ]);
+    } catch (emailErr) {
+      console.error('[Courier] Email error:', emailErr.message);
+    }
 
     res.status(201).json({ message: 'Courier booking submitted successfully.', booking });
   } catch (err) {

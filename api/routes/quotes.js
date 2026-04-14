@@ -32,10 +32,13 @@ router.post('/', [
     );
 
     const quote = result.rows[0];
+    const emailData = { ...quote, description, phone: phone || null, wants_consult: wants_consult ?? false, budget: budget || null };
 
-    // Fire-and-forget emails — don't block the response
-    notifyAdminNewQuote({ ...quote, description, phone: phone || null, wants_consult: wants_consult ?? false, budget: budget || null }).catch(() => {});
-    confirmClientQuote({ ...quote, description, phone: phone || null, wants_consult: wants_consult ?? false, budget: budget || null }).catch(() => {});
+    // Await both emails before responding — required for Vercel serverless
+    await Promise.allSettled([
+      notifyAdminNewQuote(emailData),
+      confirmClientQuote(emailData),
+    ]);
 
     res.status(201).json({
       message: 'Quote request received. We will get back to you within 24 hours.',
