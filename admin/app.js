@@ -73,8 +73,29 @@ function bootApp(user) {
   document.getElementById('adminApp').classList.remove('hidden');
   document.getElementById('dashGreeting').textContent =
     `Welcome back, ${user.first_name}`;
+  const atbUser = document.getElementById('atbUserName');
+  if (atbUser) atbUser.textContent = user.first_name;
+  // Open sidebar by default on desktop
+  if (window.innerWidth >= 900) {
+    document.getElementById('adminApp').classList.add('sidebar-open');
+  }
   loadDashboard();
 }
+
+// ── Sidebar ───────────────────────────────────────────
+function toggleAdminSidebar() {
+  document.getElementById('adminApp').classList.toggle('sidebar-open');
+}
+function closeAdminSidebar() {
+  document.getElementById('adminApp').classList.remove('sidebar-open');
+}
+
+window.addEventListener('resize', () => {
+  const app = document.getElementById('adminApp');
+  if (app && !app.classList.contains('hidden') && window.innerWidth >= 900) {
+    app.classList.add('sidebar-open');
+  }
+});
 
 function showLogin() {
   document.getElementById('loginScreen').classList.remove('hidden');
@@ -162,6 +183,8 @@ function showPage(name) {
     case 'users':     loadUsers();      break;
     case 'proposals': loadProposals();  break;
   }
+  // Auto-close sidebar on mobile after navigation
+  if (window.innerWidth < 900) closeAdminSidebar();
 }
 
 // ── Dashboard ─────────────────────────────────────────
@@ -582,17 +605,32 @@ async function deletePortfolioItem(id, e) {
   loadPortfolio();
 }
 
-// ── Users ─────────────────────────────────────────────
+// ── Users / Account Control ───────────────────────────
 async function loadUsers() {
-  const el = document.getElementById('usersTable');
+  const el     = document.getElementById('usersTable');
   el.innerHTML = '<div class="empty-state">Loading...</div>';
 
+  const q      = document.getElementById('uac-search')?.value       || '';
+  const role   = document.getElementById('uac-role-filter')?.value  || '';
+  const status = document.getElementById('uac-status-filter')?.value || '';
+
+  const params = new URLSearchParams({ limit: 200, q, role, status });
+
   try {
-    const res  = await apiFetch('/admin/users?limit=100');
+    const res  = await apiFetch(`/admin/users?${params}`);
     const data = await res.json();
 
+    // Update stats strip
+    if (data.stats) {
+      document.getElementById('uac-total').textContent    = data.stats.total    ?? '–';
+      document.getElementById('uac-active').textContent   = data.stats.active   ?? '–';
+      document.getElementById('uac-disabled').textContent = data.stats.disabled ?? '–';
+      document.getElementById('uac-admins').textContent   = data.stats.admins   ?? '–';
+      document.getElementById('uac-clients').textContent  = data.stats.clients  ?? '–';
+    }
+
     if (!data.users?.length) {
-      el.innerHTML = emptyState('No registered users');
+      el.innerHTML = emptyState('No users match your search');
       return;
     }
 
@@ -601,8 +639,7 @@ async function loadUsers() {
         <thead>
           <tr>
             <th>#</th>
-            <th>Name</th>
-            <th>Email</th>
+            <th>User</th>
             <th>Phone</th>
             <th>Role</th>
             <th>Status</th>
@@ -611,28 +648,179 @@ async function loadUsers() {
           </tr>
         </thead>
         <tbody>
-          ${data.users.filter(u => u.role !== 'admin').map(u => `
-            <tr>
+          ${data.users.map(u => `
+            <tr class="clickable-row ${u.role === 'admin' ? 'user-row-admin' : ''}"
+                onclick="openUserDetail(${u.id})">
               <td class="td-muted">${u.id}</td>
-              <td class="td-name">${esc(u.first_name)} ${esc(u.last_name)}</td>
-              <td class="td-muted">${esc(u.email)}</td>
-              <td class="td-muted">${u.phone ? `<a href="https://wa.me/${u.phone.replace(/\D/g,'')}" target="_blank" style="color:#25d366">${esc(u.phone)}</a>` : '–'}</td>
-              <td><span class="badge badge-${u.role === 'admin' ? 'new' : 'contacted'}">${u.role}</span></td>
-              <td><span class="badge ${u.is_active ? 'badge-converted' : 'badge-closed'}">${u.is_active ? 'Active' : 'Disabled'}</span></td>
+              <td>
+                <div class="td-name">${esc(u.first_name)} ${esc(u.last_name)}</div>
+                <div class="td-muted">${esc(u.email)}</div>
+              </td>
+              <td class="td-muted">
+                ${u.phone
+                  ? `<a href="https://wa.me/${u.phone.replace(/\D/g,'')}" target="_blank"
+                        style="color:#25d366" onclick="event.stopPropagation()">${esc(u.phone)}</a>`
+                  : '–'}
+              </td>
+              <td>
+                <span class="badge badge-${u.role === 'admin' ? 'new' : 'contacted'}">
+                  ${u.role === 'admin' ? '⚡ Admin' : 'Client'}
+                </span>
+              </td>
+              <td>
+                <span class="badge ${u.is_active ? 'badge-converted' : 'badge-closed'}">
+                  ${u.is_active ? 'Active' : 'Disabled'}
+                </span>
+              </td>
               <td class="td-date">${formatDate(u.created_at)}</td>
-              <td class="td-actions">
-                <button class="btn-outline btn-sm" onclick="openUserModal(${u.id})">Edit</button>
-                <button class="btn-outline ${u.is_active ? 'danger' : 'success'} btn-sm" onclick="toggleUser(${u.id})">
+              <td class="td-actions" onclick="event.stopPropagation()">
+                <button class="btn-outline btn-sm"
+                        onclick="openUserModal(${u.id})">Edit</button>
+                ${u.role !== 'admin' ? `
+                <button class="btn-outline ${u.is_active ? 'danger' : 'success'} btn-sm"
+                        onclick="toggleUser(${u.id})">
                   ${u.is_active ? 'Disable' : 'Enable'}
                 </button>
-                <button class="btn-outline danger btn-sm" onclick="deleteUser(${u.id},'${esc(u.first_name)} ${esc(u.last_name)}',event)">Delete</button>
+                <button class="btn-outline danger btn-sm"
+                        onclick="deleteUser(${u.id},'${esc(u.first_name)} ${esc(u.last_name)}',event)">
+                  Delete
+                </button>` : ''}
               </td>
             </tr>`).join('')}
         </tbody>
       </table>
-      <div style="padding:.75rem 1rem;font-size:.8rem;color:var(--muted)">${data.total} total users</div>`;
+      <div style="padding:.75rem 1rem;font-size:.8rem;color:var(--muted)">
+        Showing ${data.users.length} of ${data.total} users
+      </div>`;
   } catch {
     el.innerHTML = errorState('Failed to load users');
+  }
+}
+
+function clearUserFilters() {
+  document.getElementById('uac-search').value        = '';
+  document.getElementById('uac-role-filter').value   = '';
+  document.getElementById('uac-status-filter').value = '';
+  loadUsers();
+}
+
+async function openUserDetail(id) {
+  const modal   = document.getElementById('userDetailModal');
+  const content = document.getElementById('ud-content');
+  content.innerHTML = '<div class="empty-state">Loading…</div>';
+  modal.classList.add('open');
+
+  try {
+    const res = await apiFetch(`/admin/users/${id}`);
+    if (!res.ok) throw new Error();
+    const u = await res.json();
+
+    const initials = `${u.first_name?.[0] || ''}${u.last_name?.[0] || ''}`.toUpperCase();
+    const roleColour = u.role === 'admin' ? 'var(--blue)' : 'var(--green)';
+
+    const recentQuotes = u.recent_quotes || [];
+    const recentProps  = u.recent_proposals || [];
+    const recentCour   = u.recent_courier || [];
+
+    content.innerHTML = `
+      <!-- Header -->
+      <div class="ud-header">
+        <div class="ud-avatar" style="background:${u.role==='admin'?'rgba(30,111,217,.15)':'var(--green-dim)'};border-color:${roleColour};color:${roleColour}">
+          ${initials}
+        </div>
+        <div style="flex:1">
+          <div class="ud-name">${esc(u.first_name)} ${esc(u.last_name)}</div>
+          <div class="ud-email">${esc(u.email)}</div>
+          <div class="ud-meta">
+            ${u.phone ? `<span class="ud-meta-item">📱 <a href="https://wa.me/${u.phone.replace(/\D/g,'')}" target="_blank" style="color:#25d366">${esc(u.phone)}</a></span>` : ''}
+            <span class="ud-meta-item">🗓 Joined ${formatDate(u.created_at)}</span>
+            <span class="badge badge-${u.role==='admin'?'new':'contacted'}" style="font-size:.72rem">
+              ${u.role === 'admin' ? '⚡ Admin' : 'Client'}
+            </span>
+            <span class="badge ${u.is_active?'badge-converted':'badge-closed'}" style="font-size:.72rem">
+              ${u.is_active ? 'Active' : 'Disabled'}
+            </span>
+          </div>
+        </div>
+        <div class="ud-header-actions">
+          <button class="btn-outline btn-sm" onclick="openUserModal(${u.id});document.getElementById('userDetailModal').classList.remove('open')">
+            Edit Account
+          </button>
+          ${u.role !== 'admin' ? `
+          <button class="btn-outline ${u.is_active?'danger':'success'} btn-sm"
+                  onclick="toggleUser(${u.id});document.getElementById('userDetailModal').classList.remove('open')">
+            ${u.is_active ? 'Disable' : 'Enable'}
+          </button>` : ''}
+        </div>
+      </div>
+
+      <!-- Activity Stats -->
+      <div class="ud-activity-strip">
+        <div class="ud-act-card">
+          <div class="ud-act-val">${u.quote_count || 0}</div>
+          <div class="ud-act-lbl">Quote Requests</div>
+        </div>
+        <div class="ud-act-card">
+          <div class="ud-act-val">${u.proposal_count || 0}</div>
+          <div class="ud-act-lbl">Proposals</div>
+        </div>
+        <div class="ud-act-card">
+          <div class="ud-act-val">${u.courier_count || 0}</div>
+          <div class="ud-act-lbl">Courier Jobs</div>
+        </div>
+      </div>
+
+      <!-- Recent Quotes -->
+      ${recentQuotes.length ? `
+      <div class="ud-section-title">Recent Quote Requests</div>
+      <div class="ud-activity-list">
+        ${recentQuotes.map(q => `
+          <div class="ud-act-row" onclick="document.getElementById('userDetailModal').classList.remove('open');openQuoteModal(${q.id})">
+            <div class="ud-act-row-info">
+              <div class="ud-act-row-title">${esc(q.service)}</div>
+              <div class="ud-act-row-sub">${formatDate(q.created_at)}</div>
+            </div>
+            <span class="badge badge-${q.status}">${q.status}</span>
+          </div>`).join('')}
+      </div>` : ''}
+
+      <!-- Recent Proposals -->
+      ${recentProps.length ? `
+      <div class="ud-section-title">Proposals Sent</div>
+      <div class="ud-activity-list">
+        ${recentProps.map(p => `
+          <div class="ud-act-row" onclick="document.getElementById('userDetailModal').classList.remove('open');openProposalModal(${p.id})">
+            <div class="ud-act-row-info">
+              <div class="ud-act-row-title">${esc(p.title)}</div>
+              <div class="ud-act-row-sub">${esc(p.quote_number)} · ${formatDate(p.created_at)}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-weight:700;color:var(--green);font-size:.85rem">R ${parseFloat(p.total).toFixed(2)}</div>
+              <span class="badge badge-${p.status}" style="font-size:.7rem">${p.status}</span>
+            </div>
+          </div>`).join('')}
+      </div>` : ''}
+
+      <!-- Recent Courier -->
+      ${recentCour.length ? `
+      <div class="ud-section-title">Courier Bookings</div>
+      <div class="ud-activity-list">
+        ${recentCour.map(c => `
+          <div class="ud-act-row" onclick="document.getElementById('userDetailModal').classList.remove('open');openCourierModal(${c.id})">
+            <div class="ud-act-row-info">
+              <div class="ud-act-row-title">${esc(c.item_type)}</div>
+              <div class="ud-act-row-sub">${formatDate(c.created_at)}</div>
+            </div>
+            <span class="badge badge-${c.status}">${statusLabel(c.status)}</span>
+          </div>`).join('')}
+      </div>` : ''}
+
+      ${!recentQuotes.length && !recentProps.length && !recentCour.length ? `
+        <div class="empty-state" style="padding:1.5rem 0">No activity on this account yet</div>
+      ` : ''}
+    `;
+  } catch {
+    content.innerHTML = errorState('Failed to load user details.');
   }
 }
 
@@ -645,16 +833,14 @@ function openUserModal(id = null) {
   editingUserId = id;
   const modal = document.getElementById('userModal');
   document.getElementById('um-feedback').classList.add('hidden');
-  document.getElementById('um-title').textContent = id ? 'Edit User' : 'New User';
+  document.getElementById('um-title').textContent    = id ? 'Edit User' : 'New User';
   document.getElementById('um-pw-label').textContent = id
     ? 'New Password (leave blank to keep current)'
     : 'Password *';
   document.getElementById('um-password').required = !id;
 
   if (id) {
-    apiFetch('/admin/users?limit=200').then(r => r.json()).then(data => {
-      const u = data.users?.find(u => u.id === id);
-      if (!u) return;
+    apiFetch(`/admin/users/${id}`).then(r => r.json()).then(u => {
       document.getElementById('um-fname').value    = u.first_name;
       document.getElementById('um-lname').value    = u.last_name;
       document.getElementById('um-email').value    = u.email;
@@ -716,7 +902,7 @@ async function saveUser(e) {
 
 async function deleteUser(id, name, e) {
   e.stopPropagation();
-  if (!confirm(`Delete user "${name}"?\n\nThis is permanent and will remove all their data.`)) return;
+  if (!confirm(`Delete user "${name}"?\n\nThis is permanent and cannot be undone.`)) return;
   try {
     const res = await apiFetch(`/admin/users/${id}`, { method: 'DELETE' });
     if (!res.ok) { const d = await res.json(); alert(d.error || 'Delete failed.'); return; }
@@ -767,8 +953,16 @@ async function loadProposals() {
               <td><span class="badge badge-${p.status}">${p.status}</span></td>
               <td class="td-date">${p.valid_until ? formatDate(p.valid_until) : '–'}</td>
               <td class="td-date">${formatDate(p.created_at)}</td>
-              <td>
-                <button class="btn-outline danger btn-sm" onclick="deleteProposal(${p.id},event)">Delete</button>
+              <td class="td-actions" onclick="event.stopPropagation()">
+                <button class="btn-outline btn-sm" title="Download PDF" onclick="downloadProposalPDF(${p.id})">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  PDF
+                </button>
+                <button class="btn-outline success btn-sm" title="Email PDF to client" onclick="emailProposalPDF(${p.id}, event)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  Email
+                </button>
+                <button class="btn-outline danger btn-sm" title="Delete proposal" onclick="deleteProposal(${p.id},event)">✕</button>
               </td>
             </tr>`).join('')}
         </tbody>
@@ -824,6 +1018,12 @@ async function openProposalModal(id = null) {
     await loadLeadOptions(null);
   }
 
+  // Show PDF buttons only when editing an existing proposal
+  const pdfBtn   = document.getElementById('prm-pdf-btn');
+  const emailBtn = document.getElementById('prm-email-btn');
+  if (pdfBtn)   pdfBtn.style.display   = id ? 'inline-flex' : 'none';
+  if (emailBtn) emailBtn.style.display = id ? 'inline-flex' : 'none';
+
   recalcTotals();
   document.getElementById('proposalModal').classList.add('open');
 }
@@ -864,7 +1064,7 @@ function addLineItem(desc = '', qty = 1, price = 0) {
   tr.id = `li-${id}`;
   tr.innerHTML = `
     <td><input type="text"   class="li-desc"  style="width:100%" placeholder="Service or item description" value="${esc(String(desc))}" oninput="recalcTotals()" /></td>
-    <td><input type="number" class="li-qty"   style="width:100%" value="${qty}"   min="0.01" step="0.5"  oninput="recalcTotals()" /></td>
+    <td><input type="number" class="li-qty"   style="width:100%" value="${Math.round(qty)}"   min="1" step="1" oninput="recalcTotals()" /></td>
     <td><input type="number" class="li-price" style="width:100%" value="${price}" min="0"    step="0.01" oninput="recalcTotals()" /></td>
     <td class="li-total-val">R 0.00</td>
     <td style="text-align:center">
@@ -883,8 +1083,8 @@ function removeLineItem(rowId) {
 function recalcTotals() {
   let subtotal = 0;
   document.querySelectorAll('#prm-items tr').forEach(row => {
-    const qty   = parseFloat(row.querySelector('.li-qty')?.value)   || 0;
-    const price = parseFloat(row.querySelector('.li-price')?.value) || 0;
+    const qty   = parseInt(row.querySelector('.li-qty')?.value,   10) || 0;
+    const price = parseFloat(row.querySelector('.li-price')?.value)    || 0;
     const line  = qty * price;
     subtotal   += line;
     const cell  = row.querySelector('.li-total-val');
@@ -923,7 +1123,7 @@ async function saveProposal(e) {
   const items = [];
   document.querySelectorAll('#prm-items tr').forEach(row => {
     const desc  = row.querySelector('.li-desc')?.value?.trim() || '';
-    const qty   = parseFloat(row.querySelector('.li-qty')?.value)   || 1;
+    const qty   = parseInt(row.querySelector('.li-qty')?.value,   10) || 1;
     const price = parseFloat(row.querySelector('.li-price')?.value) || 0;
     if (desc) items.push({ description: desc, quantity: qty, unit_price: price });
   });
@@ -979,6 +1179,68 @@ async function deleteProposal(id, e) {
   if (!confirm('Delete this proposal? This cannot be undone.')) return;
   await apiFetch(`/proposals/${id}`, { method: 'DELETE' });
   loadProposals();
+}
+
+// ── PDF Download ──────────────────────────────────────
+async function downloadProposalPDF(id) {
+  try {
+    const res = await apiFetch(`/proposals/${id}/pdf`);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || 'Could not generate PDF.');
+      return;
+    }
+    // Get the filename from the content-disposition header
+    const cd       = res.headers.get('Content-Disposition') || '';
+    const match    = cd.match(/filename="?([^"]+)"?/);
+    const filename = match ? match[1] : `VTOS-Quote-${id}.pdf`;
+
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Failed to download PDF. Please try again.');
+  }
+}
+
+// ── Email PDF to Client ───────────────────────────────
+async function emailProposalPDF(id, e) {
+  if (e) e.stopPropagation();
+  const btn = e?.target?.closest('button');
+
+  const originalHTML = btn?.innerHTML;
+  if (btn) { btn.innerHTML = 'Sending…'; btn.disabled = true; }
+
+  try {
+    const res  = await apiFetch(`/proposals/${id}/email`, { method: 'POST' });
+    const data = await res.json();
+
+    if (res.ok) {
+      if (btn) {
+        btn.innerHTML = '✓ Sent!';
+        btn.classList.add('success');
+        setTimeout(() => {
+          btn.innerHTML  = originalHTML;
+          btn.classList.remove('success');
+          btn.disabled   = false;
+        }, 3000);
+      }
+      // Refresh table so status updates to "sent" if it was draft
+      loadProposals();
+    } else {
+      alert(data.error || 'Failed to send email.');
+      if (btn) { btn.innerHTML = originalHTML; btn.disabled = false; }
+    }
+  } catch {
+    alert('Failed to send email. Please check your email configuration.');
+    if (btn) { btn.innerHTML = originalHTML; btn.disabled = false; }
+  }
 }
 
 // ── Modal helpers ─────────────────────────────────────

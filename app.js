@@ -274,10 +274,7 @@ async function submitQuote(e) {
       alert(data.error || 'Submission failed. Please try again.');
     }
   } catch {
-    // API offline — still show success (form data is logged in console as fallback)
-    console.warn('[VTOS] API unreachable, quote logged locally:', payload);
-    form.classList.add('hidden');
-    sent.classList.remove('hidden');
+    alert('Could not reach the server. Please check your connection and try again, or contact us directly on WhatsApp.');
   } finally {
     btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Submit Quote Request';
     btn.disabled = false;

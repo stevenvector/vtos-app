@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>VTOS Admin</title>
+  <title>VTOS Admin Panel</title>
+  <meta name="robots" content="noindex, nofollow" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="/admin/style.css" />
 </head>
 <body>
 
@@ -49,8 +50,35 @@
   <!-- ── Admin App ── -->
   <div id="adminApp" class="hidden">
 
+    <!-- Top Bar -->
+    <div class="admin-topbar">
+      <button class="ham-btn" onclick="toggleAdminSidebar()" aria-label="Toggle navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="atb-logo">
+        <svg viewBox="0 0 40 40" fill="none" width="28" height="28">
+          <polygon points="20,4 36,36 20,28 4,36" fill="none" stroke="#39FF14" stroke-width="2"/>
+          <circle cx="20" cy="22" r="5" fill="#1E6FD9" stroke="#39FF14" stroke-width="1"/>
+          <polygon points="18,21 23,22 18,25" fill="#39FF14"/>
+        </svg>
+        <div>
+          <span class="atb-logo-text">VTOS</span>
+          <span class="atb-logo-sub">Admin Panel</span>
+        </div>
+      </div>
+      <div class="atb-right">
+        <span class="atb-user" id="atbUserName"></span>
+      </div>
+    </div>
+
+    <!-- Sidebar Overlay (mobile) -->
+    <div class="admin-overlay" onclick="closeAdminSidebar()"></div>
+
     <!-- Sidebar -->
     <aside id="sidebar">
+      <button class="sb-close-btn" onclick="closeAdminSidebar()" aria-label="Close navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
       <div class="sb-logo">
         <svg viewBox="0 0 40 40" fill="none" width="32" height="32">
           <polygon points="20,4 36,36 20,28 4,36" fill="none" stroke="#39FF14" stroke-width="2"/>
@@ -325,12 +353,58 @@
       <!-- ── Page: Users ── -->
       <section id="page-users" class="page">
         <div class="page-header">
-          <div><h1>Users</h1><p>All registered client accounts</p></div>
+          <div><h1>User Account Control</h1><p>Manage all registered accounts and access levels</p></div>
           <button class="btn-g btn-sm" onclick="openUserModal()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Add User
           </button>
         </div>
+
+        <!-- Stats Strip -->
+        <div class="uac-stats" id="uac-stats">
+          <div class="uac-stat">
+            <div class="uac-stat-val" id="uac-total">–</div>
+            <div class="uac-stat-lbl">Total Users</div>
+          </div>
+          <div class="uac-stat green">
+            <div class="uac-stat-val" id="uac-active">–</div>
+            <div class="uac-stat-lbl">Active</div>
+          </div>
+          <div class="uac-stat red">
+            <div class="uac-stat-val" id="uac-disabled">–</div>
+            <div class="uac-stat-lbl">Disabled</div>
+          </div>
+          <div class="uac-stat blue">
+            <div class="uac-stat-val" id="uac-admins">–</div>
+            <div class="uac-stat-lbl">Admins</div>
+          </div>
+          <div class="uac-stat">
+            <div class="uac-stat-val" id="uac-clients">–</div>
+            <div class="uac-stat-lbl">Clients</div>
+          </div>
+        </div>
+
+        <!-- Search + Filters -->
+        <div class="card" style="padding:.75rem 1.25rem;margin-bottom:1rem">
+          <div class="uac-filters">
+            <div class="uac-search-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" style="flex-shrink:0;color:var(--muted)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="uac-search" placeholder="Search name, email or phone…" oninput="loadUsers()" />
+            </div>
+            <select id="uac-role-filter" onchange="loadUsers()">
+              <option value="">All Roles</option>
+              <option value="client">Clients</option>
+              <option value="admin">Admins</option>
+            </select>
+            <select id="uac-status-filter" onchange="loadUsers()">
+              <option value="">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="disabled">Disabled</option>
+            </select>
+            <button class="btn-outline btn-sm" onclick="clearUserFilters()">Clear</button>
+          </div>
+        </div>
+
         <div class="card">
           <div id="usersTable">Loading...</div>
         </div>
@@ -376,6 +450,16 @@
             <div id="um-feedback" class="hidden" style="margin-bottom:1rem"></div>
             <button type="submit" class="btn-g">Save User</button>
           </form>
+        </div>
+      </div>
+
+      <!-- ── User Detail Modal ── -->
+      <div class="modal-overlay" id="userDetailModal" onclick="closeModal(event,'userDetailModal')">
+        <div class="modal modal-xl">
+          <button class="modal-x" onclick="document.getElementById('userDetailModal').classList.remove('open')">✕</button>
+          <div id="ud-content">
+            <div class="empty-state">Loading...</div>
+          </div>
         </div>
       </div>
 
@@ -495,8 +579,16 @@
             </div>
 
             <div id="prm-feedback" class="hidden" style="margin-top:1rem"></div>
-            <div style="display:flex;gap:.75rem;margin-top:1.25rem">
-              <button type="submit" class="btn-g save-btn" style="flex:1">Save Proposal</button>
+            <div style="display:flex;gap:.75rem;margin-top:1.25rem;flex-wrap:wrap">
+              <button type="submit" class="btn-g save-btn" style="flex:1;min-width:140px">Save Proposal</button>
+              <button type="button" id="prm-pdf-btn" class="btn-outline" style="display:none" onclick="downloadProposalPDF(currentProposalId)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download PDF
+              </button>
+              <button type="button" id="prm-email-btn" class="btn-outline success" style="display:none" onclick="emailProposalPDF(currentProposalId, event)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                Email Client
+              </button>
               <button type="button" class="btn-outline" style="flex:0 0 auto" onclick="document.getElementById('proposalModal').classList.remove('open')">Cancel</button>
             </div>
 
@@ -507,6 +599,6 @@
     </main>
   </div>
 
-  <script src="app.js"></script>
+  <script src="/admin/app.js"></script>
 </body>
 </html>

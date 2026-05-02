@@ -1,22 +1,49 @@
 {
   "version": 2,
   "builds": [
-    { "src": "api/server.js", "use": "@vercel/node" },
-    { "src": "favicon.svg",    "use": "@vercel/static" },
-    { "src": "index.html",     "use": "@vercel/static" },
-    { "src": "style.css",      "use": "@vercel/static" },
-    { "src": "app.js",         "use": "@vercel/static" },
-    { "src": "courier.html",   "use": "@vercel/static" },
-    { "src": "dashboard.html", "use": "@vercel/static" },
-    { "src": "reset-password.html", "use": "@vercel/static" },
-    { "src": "admin/index.html", "use": "@vercel/static" },
-    { "src": "admin/style.css",  "use": "@vercel/static" },
-    { "src": "admin/app.js",     "use": "@vercel/static" }
+    { "src": "api/server.js",        "use": "@vercel/node" },
+    { "src": "favicon.svg",          "use": "@vercel/static" },
+    { "src": "index.html",           "use": "@vercel/static" },
+    { "src": "style.css",            "use": "@vercel/static" },
+    { "src": "app.js",               "use": "@vercel/static" },
+    { "src": "robots.txt",           "use": "@vercel/static" },
+    { "src": "sitemap.xml",          "use": "@vercel/static" },
+    { "src": "courier.html",         "use": "@vercel/static" },
+    { "src": "dashboard.html",       "use": "@vercel/static" },
+    { "src": "reset-password.html",  "use": "@vercel/static" },
+    { "src": "admin/index.html",     "use": "@vercel/static" },
+    { "src": "admin/style.css",      "use": "@vercel/static" },
+    { "src": "admin/app.js",         "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/server.js" },
     { "src": "/admin",    "dest": "/admin/index.html" },
     { "src": "/admin/",   "dest": "/admin/index.html" },
     { "src": "/(.*)",     "dest": "/$1" }
+  ],
+  "headers": [
+    {
+      "source": "/((?!api).*)",
+      "headers": [
+        { "key": "X-Content-Type-Options",       "value": "nosniff" },
+        { "key": "X-Frame-Options",              "value": "DENY" },
+        { "key": "X-XSS-Protection",             "value": "1; mode=block" },
+        { "key": "Referrer-Policy",              "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy",           "value": "camera=(), microphone=(), geolocation=()" },
+        { "key": "Strict-Transport-Security",    "value": "max-age=63072000; includeSubDomains; preload" }
+      ]
+    },
+    {
+      "source": "/(admin|admin/|dashboard\\.html|courier\\.html|reset-password\\.html)(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    },
+    {
+      "source": "/(.*\\.css|.*\\.js|.*\\.svg|.*\\.ico|.*\\.png|.*\\.woff2?)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
   ]
 }

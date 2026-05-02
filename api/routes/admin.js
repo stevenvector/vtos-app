@@ -57,16 +57,89 @@ router.get('/stats', async (req, res) => {
 
 // ── GET /api/admin/users ──────────────────────────────
 router.get('/users', async (req, res) => {
-  const { limit = 50, offset = 0 } = req.query;
+  const { limit = 50, offset = 0, q = '', role = '', status = '' } = req.query;
   try {
-    const result = await pool.query(
-      `SELECT id, first_name, last_name, email, phone, role, is_active, created_at
-       FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
-      [Number(limit), Number(offset)]
-    );
-    const count = await pool.query('SELECT COUNT(*) FROM users');
-    res.json({ users: result.rows, total: parseInt(count.rows[0].count) });
+    const conditions = [];
+    const vals = [];
+    let idx = 1;
+
+    if (q.trim()) {
+      conditions.push(`(
+        first_name ILIKE $${idx} OR last_name ILIKE $${idx} OR
+        email ILIKE $${idx} OR phone ILIKE $${idx}
+      )`);
+      vals.push(`%${q.trim()}%`);
+      idx++;
+    }
+    if (role)   { conditions.push(`role = $${idx++}`);      vals.push(role); }
+    if (status === 'active')   { conditions.push(`is_active = true`); }
+    if (status === 'disabled') { conditions.push(`is_active = false`); }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const [result, count, stats] = await Promise.all([
+      pool.query(
+        `SELECT id, first_name, last_name, email, phone, role, is_active, created_at
+         FROM users ${where} ORDER BY created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`,
+        [...vals, Number(limit), Number(offset)]
+      ),
+      pool.query(`SELECT COUNT(*) FROM users ${where}`, vals),
+      pool.query(`
+        SELECT
+          COUNT(*)                                       AS total,
+          COUNT(*) FILTER (WHERE is_active = true)      AS active,
+          COUNT(*) FILTER (WHERE is_active = false)     AS disabled,
+          COUNT(*) FILTER (WHERE role = 'admin')        AS admins,
+          COUNT(*) FILTER (WHERE role = 'client')       AS clients
+        FROM users
+      `),
+    ]);
+
+    res.json({
+      users: result.rows,
+      total: parseInt(count.rows[0].count),
+      stats: stats.rows[0],
+    });
   } catch (err) {
+    console.error('[Admin] Users error:', err.message);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── GET /api/admin/users/:id — single user + activity ─
+router.get('/users/:id', async (req, res) => {
+  try {
+    const [user, activity] = await Promise.all([
+      pool.query(
+        `SELECT id, first_name, last_name, email, phone, role, is_active, created_at
+         FROM users WHERE id = $1`,
+        [req.params.id]
+      ),
+      pool.query(`
+        SELECT
+          (SELECT COUNT(*) FROM quotes         WHERE email = u.email)          AS quote_count,
+          (SELECT COUNT(*) FROM proposals      WHERE client_email = u.email)   AS proposal_count,
+          (SELECT COUNT(*) FROM courier_bookings WHERE user_id = u.id)         AS courier_count,
+          (SELECT json_agg(q ORDER BY q.created_at DESC) FROM (
+              SELECT id, name, service, status, created_at FROM quotes
+              WHERE email = u.email ORDER BY created_at DESC LIMIT 5
+           ) q) AS recent_quotes,
+          (SELECT json_agg(p ORDER BY p.created_at DESC) FROM (
+              SELECT id, quote_number, title, total, status, created_at FROM proposals
+              WHERE client_email = u.email ORDER BY created_at DESC LIMIT 5
+           ) p) AS recent_proposals,
+          (SELECT json_agg(c ORDER BY c.created_at DESC) FROM (
+              SELECT id, item_type, status, created_at FROM courier_bookings
+              WHERE user_id = u.id ORDER BY created_at DESC LIMIT 5
+           ) c) AS recent_courier
+        FROM users u WHERE u.id = $1
+      `, [req.params.id]),
+    ]);
+
+    if (!user.rowCount) return res.status(404).json({ error: 'User not found.' });
+    res.json({ ...user.rows[0], ...activity.rows[0] });
+  } catch (err) {
+    console.error('[Admin] User detail error:', err.message);
     res.status(500).json({ error: 'Server error.' });
   }
 });

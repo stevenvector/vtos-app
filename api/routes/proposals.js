@@ -2,6 +2,8 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const pool    = require('../db/connection');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { generateProposalPDF }       = require('../services/pdf');
+const { sendProposalPDF }           = require('../services/email');
 
 const router = express.Router();
 
@@ -80,6 +82,47 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('[Proposals] List error:', err.message);
     res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── GET /api/proposals/:id/pdf — admin: download PDF ──
+router.get('/:id/pdf', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM proposals WHERE id = $1', [req.params.id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Proposal not found.' });
+
+    const proposal = result.rows[0];
+    const pdf      = await generateProposalPDF(proposal);
+
+    res.setHeader('Content-Type',        'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${proposal.quote_number}.pdf"`);
+    res.setHeader('Content-Length',      pdf.length);
+    res.send(pdf);
+  } catch (err) {
+    console.error('[Proposals] PDF error:', err.message);
+    res.status(500).json({ error: 'Could not generate PDF.' });
+  }
+});
+
+// ── POST /api/proposals/:id/email — admin: email PDF to client ──
+router.post('/:id/email', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM proposals WHERE id = $1', [req.params.id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Proposal not found.' });
+
+    const proposal = result.rows[0];
+    const pdf      = await generateProposalPDF(proposal);
+    await sendProposalPDF(proposal, pdf);
+
+    // Mark as sent if it was still a draft
+    if (proposal.status === 'draft') {
+      await pool.query("UPDATE proposals SET status = 'sent' WHERE id = $1", [req.params.id]);
+    }
+
+    res.json({ message: `Proposal emailed to ${proposal.client_email}.` });
+  } catch (err) {
+    console.error('[Proposals] Email PDF error:', err.message);
+    res.status(500).json({ error: 'Failed to send email. Check email configuration.' });
   }
 });
 

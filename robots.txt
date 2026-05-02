@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Allow: /sitemap.xml
+Allow: /favicon.svg
+Allow: /style.css
+Allow: /app.js
+
+Disallow: /admin/
+Disallow: /api/
+Disallow: /dashboard.html
+Disallow: /courier.html
+Disallow: /reset-password.html
+
+Sitemap: https://vtos.vercel.app/sitemap.xml

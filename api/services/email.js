@@ -137,6 +137,61 @@ async function confirmClientCourier(booking, user) {
   await send(user.email, `Courier Booking Confirmed — ${ref}`, html);
 }
 
+// ── Client: proposal PDF ──────────────────────────────
+async function sendProposalPDF(proposal, pdfBuffer) {
+  const transporter = getTransporter();
+  if (!transporter) {
+    console.warn('[Email] Not configured — skipping proposal PDF to', proposal.client_email);
+    return;
+  }
+
+  const fmtDate = s => s ? new Date(s).toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+  const fmt     = n  => `R ${parseFloat(n || 0).toFixed(2)}`;
+
+  const html = wrap(`
+    <h2 style="color:#39FF14;margin-top:0">Your Quotation from VTOS</h2>
+    <p style="color:#ccc;line-height:1.6">Hi ${proposal.client_name.split(' ')[0]},</p>
+    <p style="color:#ccc;line-height:1.6">
+      Please find your formal quotation attached to this email as a PDF.
+      Here's a quick summary:
+    </p>
+    <div style="margin:24px 0;padding:20px;background:#111118;border-radius:8px;border-left:3px solid #39FF14">
+      <p style="margin:0 0 6px;color:#aaa;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Quote Summary</p>
+      <p style="margin:6px 0;color:#ddd"><span style="color:#888;min-width:120px;display:inline-block">Quote #:</span> <strong style="color:#39FF14;font-family:monospace">${proposal.quote_number}</strong></p>
+      <p style="margin:6px 0;color:#ddd"><span style="color:#888;min-width:120px;display:inline-block">For:</span> ${proposal.title}</p>
+      <p style="margin:6px 0;color:#ddd"><span style="color:#888;min-width:120px;display:inline-block">Total:</span> <strong style="color:#39FF14">${fmt(proposal.total)}</strong></p>
+      ${proposal.valid_until ? `<p style="margin:6px 0;color:#ddd"><span style="color:#888;min-width:120px;display:inline-block">Valid Until:</span> <span style="color:#ef4444">${fmtDate(proposal.valid_until)}</span></p>` : ''}
+    </div>
+    <p style="color:#ccc;line-height:1.6">
+      To accept, decline, or ask any questions, please reply to this email or
+      WhatsApp us at <a href="https://wa.me/27734185106" style="color:#39FF14">+27 73 418 5106</a>.
+    </p>
+    <p style="color:#888;font-size:13px;margin-top:24px">
+      You can also log in to your
+      <a href="https://vtos.vercel.app/dashboard.html" style="color:#39FF14">VTOS Client Portal</a>
+      to track the status of this proposal at any time.
+    </p>
+  `);
+
+  try {
+    await transporter.sendMail({
+      from:        `"VTOS — Vector Online Solutions" <${process.env.EMAIL_USER}>`,
+      to:          proposal.client_email,
+      subject:     `Your Quote from VTOS — ${proposal.quote_number}`,
+      html,
+      attachments: [{
+        filename:    `${proposal.quote_number}.pdf`,
+        content:     pdfBuffer,
+        contentType: 'application/pdf',
+      }],
+    });
+    console.log('[Email] Proposal PDF sent:', proposal.quote_number, '→', proposal.client_email);
+  } catch (err) {
+    console.error('[Email] Proposal PDF send failed:', err.message);
+    throw err;
+  }
+}
+
 // ── Password reset ────────────────────────────────────
 async function sendPasswordReset(email, resetUrl) {
   const html = wrap(`
@@ -155,4 +210,5 @@ module.exports = {
   confirmClientQuote,
   confirmClientCourier,
   sendPasswordReset,
+  sendProposalPDF,
 };
