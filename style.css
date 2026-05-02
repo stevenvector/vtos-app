@@ -1420,3 +1420,15 @@ textarea { resize: vertical; min-height: 120px; }
   /* Pricing table scrollable on tiny screens */
   .addons-table-wrap { overflow-x: auto; }
 }
+
+/* ── Very small phones (360px) ───────────────────────── */
+@media (max-width: 380px) {
+  .section-container { padding: 0 14px; }
+  .nav-container     { padding: 0 14px; }
+  .modal             { padding: 1.75rem 1.25rem; }
+  .hero-stats        { flex-direction: column; gap: .5rem; }
+  .stat-divider      { display: none; }
+  .service-card      { padding: 1.5rem 1.25rem; }
+  .pricing-card      { padding: 1.5rem 1.25rem; }
+  .quote-form        { padding: 1.25rem .875rem; }
+}

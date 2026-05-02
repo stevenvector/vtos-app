@@ -116,6 +116,7 @@
 
     /* Profile */
     .profile-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; max-width: 520px; }
+    .profile-name-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     .profile-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 1.5rem; }
     .fg { margin-bottom: 1.1rem; }
     .fg label { display: block; font-size: .75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .35rem; }
@@ -154,7 +155,10 @@
       .profile-card { padding: 1.25rem; }
     }
     @media (max-width: 540px) {
-      .detail-fields { grid-template-columns: 1fr; }
+      .detail-fields     { grid-template-columns: 1fr; }
+      .profile-name-grid { grid-template-columns: 1fr; }
+      .profile-card      { padding: 1.25rem; }
+      .auth-box          { padding: 1.75rem 1.25rem; }
     }
     /* Responsive table → card layout on small screens */
     @media (max-width: 600px) {
@@ -433,7 +437,7 @@
             <h3>Personal Information</h3>
             <div id="profileFeedback" class="feedback"></div>
             <form onsubmit="saveProfile(event)">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+              <div class="profile-name-grid">
                 <div class="fg"><label>First Name</label><input type="text" id="p-fname" required /></div>
                 <div class="fg"><label>Last Name</label><input type="text" id="p-lname" required /></div>
               </div>

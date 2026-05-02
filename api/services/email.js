@@ -1,5 +1,8 @@
 const nodemailer = require('nodemailer');
 
+// ── Domain helper — swap automatically when APP_URL env var is set ──
+const APP_URL = () => (process.env.APP_URL || 'https://vtos.vercel.app').replace(/\/$/, '');
+
 // ── Transporter ───────────────────────────────────────
 function getTransporter() {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
@@ -69,7 +72,7 @@ async function notifyAdminNewQuote(quote) {
       <p style="margin:0;color:#aaa;font-size:13px;font-weight:600">Description</p>
       <p style="margin:8px 0 0;color:#ddd">${quote.description}</p>
     </div>
-    <a href="https://vtos.vercel.app/admin/" style="display:inline-block;margin-top:24px;padding:12px 24px;background:#39FF14;color:#0a0a0f;font-weight:700;border-radius:8px;text-decoration:none">View in Admin Panel</a>
+    <a href="${APP_URL()}/admin/" style="display:inline-block;margin-top:24px;padding:12px 24px;background:#39FF14;color:#0a0a0f;font-weight:700;border-radius:8px;text-decoration:none">View in Admin Panel</a>
   `);
   await send(process.env.EMAIL_USER, `New Quote Request — ${quote.name} (${quote.service})`, html);
 }
@@ -95,7 +98,7 @@ async function notifyAdminNewCourier(booking, user) {
       <span style="color:#888;font-size:13px">Booking Ref: </span>
       <span style="color:#39FF14;font-family:monospace;font-weight:700">VTOS-CIR-${String(booking.id).padStart(5,'0')}</span>
     </div>
-    <a href="https://vtos.vercel.app/admin/" style="display:inline-block;margin-top:24px;padding:12px 24px;background:#39FF14;color:#0a0a0f;font-weight:700;border-radius:8px;text-decoration:none">View in Admin Panel</a>
+    <a href="${APP_URL()}/admin/" style="display:inline-block;margin-top:24px;padding:12px 24px;background:#39FF14;color:#0a0a0f;font-weight:700;border-radius:8px;text-decoration:none">View in Admin Panel</a>
   `);
   await send(process.env.EMAIL_USER, `New Courier Booking — ${user.first_name} ${user.last_name} (${booking.item_type})`, html);
 }
@@ -131,7 +134,7 @@ async function confirmClientCourier(booking, user) {
       ${booking.tracking_number ? `<p style="margin:4px 0;color:#ddd"><span style="color:#888;min-width:140px;display:inline-block">Tracking #:</span> <span style="font-family:monospace;color:#1E6FD9">${booking.tracking_number}</span></p>` : ''}
       ${booking.estimated_arrival ? `<p style="margin:4px 0;color:#ddd"><span style="color:#888;min-width:140px;display:inline-block">Est. Arrival:</span> ${booking.estimated_arrival}</p>` : ''}
     </div>
-    <p style="color:#ccc;line-height:1.6">We'll update your booking status as your device moves through our workshop. You can track progress anytime in your <a href="https://vtos.vercel.app/dashboard.html" style="color:#39FF14">client dashboard</a>.</p>
+    <p style="color:#ccc;line-height:1.6">We'll update your booking status as your device moves through our workshop. You can track progress anytime in your <a href="${APP_URL()}/dashboard.html" style="color:#39FF14">client dashboard</a>.</p>
     <p style="color:#888;font-size:14px">Questions? WhatsApp us at <a href="https://wa.me/27734185106" style="color:#39FF14">+27 73 418 5106</a></p>
   `);
   await send(user.email, `Courier Booking Confirmed — ${ref}`, html);
@@ -168,7 +171,7 @@ async function sendProposalPDF(proposal, pdfBuffer) {
     </p>
     <p style="color:#888;font-size:13px;margin-top:24px">
       You can also log in to your
-      <a href="https://vtos.vercel.app/dashboard.html" style="color:#39FF14">VTOS Client Portal</a>
+      <a href="${APP_URL()}/dashboard.html" style="color:#39FF14">VTOS Client Portal</a>
       to track the status of this proposal at any time.
     </p>
   `);
