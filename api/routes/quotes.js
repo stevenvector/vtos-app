@@ -11,28 +11,48 @@ router.post('/', [
   body('name').trim().notEmpty().withMessage('Name is required'),
   body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
   body('service').trim().notEmpty().withMessage('Service is required'),
-  body('description').trim().isLength({ min: 10 }).withMessage('Description too short'),
+  body('description').trim().isLength({ min: 5 }).withMessage('Description too short'),
   body('company').optional().trim(),
   body('phone').optional().trim(),
   body('budget').optional().trim(),
   body('wants_consult').optional().isBoolean(),
+  body('package_tier').optional().trim(),
+  body('addons').optional().isArray(),
+  body('estimate').optional().isInt({ min: 0 }),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { name, company, email, phone, service, budget, description, wants_consult } = req.body;
-  const userId = req.user?.id || null; // attach if logged in
+  const {
+    name, company, email, phone, service, budget, description, wants_consult,
+    package_tier, addons, estimate,
+  } = req.body;
+  const userId = req.user?.id || null;
 
   try {
     const result = await pool.query(
-      `INSERT INTO quotes (name, company, email, phone, service, budget, description, wants_consult, submitted_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-       RETURNING id, name, email, service, status, created_at`,
-      [name, company || null, email, phone || null, service, budget || null, description, wants_consult ?? false, userId]
+      `INSERT INTO quotes
+         (name, company, email, phone, service, budget, description, wants_consult,
+          submitted_by, package_tier, addons, estimate)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       RETURNING id, name, email, service, package_tier, estimate, status, created_at`,
+      [
+        name, company || null, email, phone || null, service,
+        budget || null, description, wants_consult ?? false, userId,
+        package_tier || null,
+        addons && addons.length ? JSON.stringify(addons) : null,
+        estimate || null,
+      ]
     );
 
     const quote = result.rows[0];
-    const emailData = { ...quote, description, phone: phone || null, wants_consult: wants_consult ?? false, budget: budget || null };
+    const emailData = {
+      ...quote, description,
+      phone: phone || null,
+      wants_consult: wants_consult ?? false,
+      budget: budget || null,
+      addons: addons || [],
+    };
 
     // Await both emails before responding — required for Vercel serverless
     await Promise.allSettled([

@@ -58,23 +58,33 @@ function wrap(body) {
 
 // ── Admin: new quote lead ─────────────────────────────
 async function notifyAdminNewQuote(quote) {
+  const addonsRows = (quote.addons || []).length
+    ? `<tr><td style="padding:8px 0;color:#888;vertical-align:top">Add-ons</td><td style="padding:8px 0;color:#fff">${
+        quote.addons.map(a => `${a.name} (+R${Number(a.price).toLocaleString()})`).join('<br/>')
+      }</td></tr>`
+    : '';
+  const estimateRow = quote.estimate
+    ? `<tr><td style="padding:8px 0;color:#888">Estimate</td><td style="padding:8px 0;color:#39FF14;font-weight:700;font-size:15px">R${Number(quote.estimate).toLocaleString()}</td></tr>`
+    : '';
+
   const html = wrap(`
     <h2 style="color:#39FF14;margin-top:0">🔔 New Quote Request</h2>
     <table style="width:100%;border-collapse:collapse">
       <tr><td style="padding:8px 0;color:#888;width:130px">Name</td><td style="padding:8px 0;color:#fff">${quote.name}</td></tr>
       <tr><td style="padding:8px 0;color:#888">Email</td><td style="padding:8px 0;color:#fff">${quote.email}</td></tr>
       <tr><td style="padding:8px 0;color:#888">Phone</td><td style="padding:8px 0;color:#fff">${quote.phone || '—'}</td></tr>
-      <tr><td style="padding:8px 0;color:#888">Service</td><td style="padding:8px 0;color:#1E6FD9;font-weight:600">${quote.service}</td></tr>
-      <tr><td style="padding:8px 0;color:#888">Budget</td><td style="padding:8px 0;color:#fff">${quote.budget || '—'}</td></tr>
-      <tr><td style="padding:8px 0;color:#888">Consult?</td><td style="padding:8px 0;color:#fff">${quote.wants_consult ? 'Yes' : 'No'}</td></tr>
+      <tr><td style="padding:8px 0;color:#888">Package</td><td style="padding:8px 0;color:#1E6FD9;font-weight:600">${quote.package_tier || quote.service}</td></tr>
+      ${addonsRows}
+      ${estimateRow}
+      <tr><td style="padding:8px 0;color:#888">Consult?</td><td style="padding:8px 0;color:#fff">${quote.wants_consult ? 'Yes — schedule a call' : 'No'}</td></tr>
     </table>
     <div style="margin-top:20px;padding:16px;background:#111118;border-radius:8px;border-left:3px solid #1E6FD9">
-      <p style="margin:0;color:#aaa;font-size:13px;font-weight:600">Description</p>
+      <p style="margin:0;color:#aaa;font-size:13px;font-weight:600">Requirements</p>
       <p style="margin:8px 0 0;color:#ddd">${quote.description}</p>
     </div>
-    <a href="${APP_URL()}/admin/" style="display:inline-block;margin-top:24px;padding:12px 24px;background:#39FF14;color:#0a0a0f;font-weight:700;border-radius:8px;text-decoration:none">View in Admin Panel</a>
+    <a href="${APP_URL()}/admin/" style="display:inline-block;margin-top:24px;padding:12px 24px;background:#39FF14;color:#0a0a0f;font-weight:700;border-radius:8px;text-decoration:none">Open in Admin Panel →</a>
   `);
-  await send(process.env.EMAIL_USER, `New Quote Request — ${quote.name} (${quote.service})`, html);
+  await send(process.env.EMAIL_USER, `New Quote — ${quote.name} · ${quote.package_tier || quote.service}`, html);
 }
 
 // ── Admin: new courier booking ────────────────────────
@@ -110,9 +120,10 @@ async function confirmClientQuote(quote) {
     <p style="color:#ccc;line-height:1.6">We've received your quote request and will get back to you within <strong style="color:#fff">24 hours</strong>.</p>
     <div style="margin:24px 0;padding:20px;background:#111118;border-radius:8px;border-left:3px solid #39FF14">
       <p style="margin:0 0 12px;color:#aaa;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Your Request Summary</p>
-      <p style="margin:4px 0;color:#ddd"><span style="color:#888;min-width:80px;display:inline-block">Service:</span> <strong style="color:#1E6FD9">${quote.service}</strong></p>
-      ${quote.budget ? `<p style="margin:4px 0;color:#ddd"><span style="color:#888;min-width:80px;display:inline-block">Budget:</span> ${quote.budget}</p>` : ''}
-      <p style="margin:4px 0;color:#ddd"><span style="color:#888;min-width:80px;display:inline-block">Consult:</span> ${quote.wants_consult ? 'Yes — we\'ll suggest a time' : 'No'}</p>
+      <p style="margin:4px 0;color:#ddd"><span style="color:#888;min-width:90px;display:inline-block">Package:</span> <strong style="color:#1E6FD9">${quote.package_tier || quote.service}</strong></p>
+      ${quote.estimate ? `<p style="margin:4px 0;color:#ddd"><span style="color:#888;min-width:90px;display:inline-block">Estimate:</span> <strong style="color:#39FF14">R${Number(quote.estimate).toLocaleString()}</strong></p>` : ''}
+      ${(quote.addons || []).length ? `<p style="margin:8px 0 4px;color:#888;font-size:12px">Selected add-ons: ${quote.addons.map(a=>a.name).join(', ')}</p>` : ''}
+      <p style="margin:4px 0;color:#ddd"><span style="color:#888;min-width:90px;display:inline-block">Consult:</span> ${quote.wants_consult ? 'Yes — we\'ll be in touch to schedule a call' : 'No'}</p>
     </div>
     <p style="color:#888;font-size:14px">In the meantime, feel free to WhatsApp us directly at <a href="https://wa.me/27734185106" style="color:#39FF14">+27 73 418 5106</a> if you have any questions.</p>
   `);

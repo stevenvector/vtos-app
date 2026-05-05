@@ -46,6 +46,11 @@ CREATE INDEX IF NOT EXISTS idx_quotes_status    ON quotes(status);
 CREATE INDEX IF NOT EXISTS idx_quotes_created   ON quotes(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_quotes_email     ON quotes(email);
 
+-- Package-driven quoting (safe to run multiple times)
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS package_tier VARCHAR(100);
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS addons       JSONB;
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS estimate     INTEGER;
+
 -- ── Courier Bookings ─────────────────────────────────
 CREATE TABLE IF NOT EXISTS courier_bookings (
   id                  SERIAL PRIMARY KEY,

@@ -4,6 +4,72 @@
 
 const API = '/api';
 
+// ── Package-driven quote: pricing data ───────────────
+const QUOTE_PACKAGES = {
+  starter:      { name: 'Starter Website',          price: 3000  },
+  professional: { name: 'Professional Website',      price: 6500  },
+  webapp:       { name: 'Web Application / Portal',  price: 9999  },
+  ecommerce:    { name: 'E-Commerce Store',          price: 13999 },
+  repair:       { name: 'PC Repair / Hardware',      price: 350,  note: 'Diagnostic fee — credited to repair cost' },
+  custom:       { name: 'Custom / Enterprise',       price: 0,    note: 'Free consultation — no obligation' },
+};
+
+const QUOTE_ADDONS = {
+  'logo':         { name: 'Logo & Brand Design',               price: 1499 },
+  'domain':       { name: 'Domain Registration (1 yr)',         price: 299  },
+  'hosting':      { name: 'Hosting Setup',                      price: 499  },
+  'email-host':   { name: 'Professional Email (1 yr, 10 accs)', price: 1200 },
+  'seo':          { name: 'SEO Kickstart Package (3 months)',   price: 2499 },
+  'gmb':          { name: 'Google My Business Setup',           price: 499  },
+  'whatsapp':     { name: 'WhatsApp Chat Widget',               price: 699  },
+  'maintenance':  { name: 'Monthly Maintenance Plan',           price: 499, note: '/mo' },
+  'payment-gw':   { name: 'Payment Gateway Integration',        price: 1499 },
+  'extra-pages':  { name: 'Extra Pages (per 3)',                price: 799  },
+  'content':      { name: 'Content Writing (per page)',         price: 399  },
+  'custom-addon': { name: 'Custom Add-on (discuss below)',      price: 0    },
+};
+
+// ── Live estimate updater ─────────────────────────────
+function updateEstimate() {
+  const pkgInput  = document.querySelector('input[name="q-package"]:checked');
+  const valEl     = document.getElementById('q-estimate-val');
+  const noteEl    = document.getElementById('q-estimate-note');
+  if (!valEl) return;
+
+  if (!pkgInput) {
+    valEl.textContent  = '—';
+    noteEl.textContent = 'Select a package above to see your instant estimate';
+    return;
+  }
+
+  const pkg = QUOTE_PACKAGES[pkgInput.value];
+
+  if (pkg.price === 0) {
+    valEl.textContent  = 'Free';
+    noteEl.textContent = pkg.note || 'Scoped together in a consultation';
+    return;
+  }
+
+  const checkedAddons = [...document.querySelectorAll('.addon-cb:checked')];
+  let addonTotal = 0;
+  checkedAddons.forEach(cb => {
+    const a = QUOTE_ADDONS[cb.value];
+    if (a) addonTotal += a.price;
+  });
+
+  const total = pkg.price + addonTotal;
+
+  if (pkg.note) {
+    valEl.textContent  = `R${pkg.price.toLocaleString()}`;
+    noteEl.textContent = pkg.note;
+  } else {
+    valEl.textContent  = `R${total.toLocaleString()}`;
+    noteEl.textContent = addonTotal > 0
+      ? `Base R${pkg.price.toLocaleString()} + R${addonTotal.toLocaleString()} add-ons`
+      : 'Base package price — add-ons above increase this';
+  }
+}
+
 let vtosToken = localStorage.getItem('vtos_token');
 let vtosUser  = null;
 
@@ -249,16 +315,41 @@ async function submitQuote(e) {
   const sent = document.getElementById('quoteSent');
   const btn  = form.querySelector('button[type="submit"]');
 
+  // ── Validate package selection ──
+  const pkgInput = document.querySelector('input[name="q-package"]:checked');
+  if (!pkgInput) {
+    const firstCard = document.querySelector('.pkg-grid');
+    if (firstCard) firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    firstCard.style.outline = '2px solid var(--green)';
+    setTimeout(() => { firstCard.style.outline = ''; }, 2000);
+    alert('Please select a package to continue.');
+    return;
+  }
+
   btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Sending…';
   btn.disabled = true;
+
+  // ── Build package + addons + estimate ──
+  const pkg    = QUOTE_PACKAGES[pkgInput.value];
+  const addons = [...document.querySelectorAll('.addon-cb:checked')].map(cb => ({
+    id:    cb.value,
+    name:  QUOTE_ADDONS[cb.value]?.name || cb.value,
+    price: QUOTE_ADDONS[cb.value]?.price || 0,
+  }));
+
+  const addonTotal = addons.reduce((s, a) => s + a.price, 0);
+  const estimate   = pkg.price > 0 ? pkg.price + addonTotal : null;
 
   const payload = {
     name:          document.getElementById('q-name').value,
     company:       document.getElementById('q-company').value,
     email:         document.getElementById('q-email').value,
     phone:         document.getElementById('q-phone').value,
-    service:       document.getElementById('q-service').value,
-    budget:        document.getElementById('q-budget').value,
+    service:       pkg.name,
+    package_tier:  pkg.name,
+    addons:        addons.length ? addons : undefined,
+    estimate:      estimate || undefined,
+    budget:        estimate ? `R${estimate.toLocaleString()}` : 'Free consultation',
     description:   document.getElementById('q-desc').value,
     wants_consult: document.getElementById('q-consult').checked,
   };
@@ -274,7 +365,7 @@ async function submitQuote(e) {
       alert(data.error || 'Submission failed. Please try again.');
     }
   } catch {
-    alert('Could not reach the server. Please check your connection and try again, or contact us directly on WhatsApp.');
+    alert('Could not reach the server. Please check your connection and try again, or contact us on WhatsApp.');
   } finally {
     btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Submit Quote Request';
     btn.disabled = false;

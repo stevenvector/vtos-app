@@ -13,37 +13,69 @@ let currentProposalId  = null;
 let lineItemCounter    = 0;
 
 const SERVICE_TEMPLATES = {
-  'Website Design': [
-    { desc: 'UI/UX Design & Wireframing',      qty: 1, price: 3500 },
-    { desc: 'Responsive Frontend Development', qty: 1, price: 5500 },
-    { desc: 'CMS Integration',                 qty: 1, price: 2000 },
-    { desc: 'Domain & Hosting Setup',          qty: 1, price:  500 },
+  // ── Website packages ──────────────────────────────
+  'Starter Website': [
+    { desc: 'Website Design & Wireframing (up to 5 pages)', qty: 1, price: 1400 },
+    { desc: 'Responsive Frontend Development',              qty: 1, price: 1200 },
+    { desc: 'Contact Form Integration',                     qty: 1, price:  200 },
+    { desc: 'Basic SEO Setup',                              qty: 1, price:  150 },
+    { desc: 'Social Media Links & Icons',                   qty: 1, price:   50 },
   ],
+  'Professional Website': [
+    { desc: 'UI/UX Design & Wireframing (up to 8 pages)',  qty: 1, price: 2200 },
+    { desc: 'Responsive Frontend Development',              qty: 1, price: 2000 },
+    { desc: 'Blog / News System',                           qty: 1, price:  700 },
+    { desc: 'Image Gallery',                                qty: 1, price:  400 },
+    { desc: 'WhatsApp Chat & Social Integration',           qty: 1, price:  400 },
+    { desc: 'Advanced SEO Setup & Sitemap',                 qty: 1, price:  500 },
+    { desc: 'Testing & Launch',                             qty: 1, price:  300 },
+  ],
+  // ── Web Application ───────────────────────────────
   'Web Application': [
-    { desc: 'System Architecture & Database Design', qty: 1, price: 4000 },
-    { desc: 'Backend API Development',               qty: 1, price: 7500 },
-    { desc: 'Frontend Dashboard Development',        qty: 1, price: 6000 },
-    { desc: 'Authentication & Security',             qty: 1, price: 2500 },
-    { desc: 'Testing & Deployment',                  qty: 1, price: 1500 },
+    { desc: 'System Architecture & Database Design',        qty: 1, price: 2000 },
+    { desc: 'Backend API Development',                      qty: 1, price: 3000 },
+    { desc: 'User Authentication & Role Management',        qty: 1, price: 1500 },
+    { desc: 'Frontend Dashboard / Client Portal',           qty: 1, price: 2000 },
+    { desc: 'CRM / Booking / Inventory Module',             qty: 1, price: 1500 },
+    { desc: 'Testing, Security Audit & Deployment',         qty: 1, price:  999 },
   ],
-  'E-Commerce': [
-    { desc: 'Store Design & Branding',       qty: 1, price: 4500 },
-    { desc: 'Product Catalogue Setup',       qty: 1, price: 2000 },
-    { desc: 'Payment Gateway Integration',   qty: 1, price: 2500 },
-    { desc: 'Shopping Cart & Checkout',      qty: 1, price: 3000 },
-    { desc: 'Admin Dashboard',               qty: 1, price: 2000 },
+  // ── E-Commerce ────────────────────────────────────
+  'E-Commerce Store': [
+    { desc: 'Store Design & Branding',                      qty: 1, price: 2500 },
+    { desc: 'Product Catalogue & Management System',        qty: 1, price: 2000 },
+    { desc: 'PayFast / Yoco Payment Gateway Integration',   qty: 1, price: 2500 },
+    { desc: 'Shopping Cart & Checkout Flow',                qty: 1, price: 2000 },
+    { desc: 'Order Management & Email Notifications',       qty: 1, price: 2000 },
+    { desc: 'Customer Accounts & Wishlist',                 qty: 1, price: 1500 },
+    { desc: 'Testing & Launch',                             qty: 1, price:  999 },
+    { desc: 'Stock-level Alerts',                           qty: 1, price:  500 },
   ],
+  // ── PC / Hardware ─────────────────────────────────
   'Hardware Repair': [
-    { desc: 'Diagnostic Assessment',         qty: 1, price:  350 },
-    { desc: 'Parts & Labour',                qty: 1, price:  800 },
-    { desc: 'Data Backup & Recovery',        qty: 1, price:  500 },
-    { desc: 'Quality Check & Testing',       qty: 1, price:  200 },
+    { desc: 'Diagnostic Assessment',                        qty: 1, price:  350 },
+    { desc: 'Parts & Labour',                               qty: 1, price:  800 },
+    { desc: 'Data Backup & Recovery',                       qty: 1, price:  500 },
+    { desc: 'OS Reinstall / Software Setup',                qty: 1, price:  300 },
+    { desc: 'Quality Check & Testing',                      qty: 1, price:  200 },
   ],
+  // ── IT Support ────────────────────────────────────
   'IT Support': [
-    { desc: 'On-site Assessment (per hour)', qty: 2, price:  450 },
-    { desc: 'Software Configuration',        qty: 1, price:  600 },
-    { desc: 'Network Setup',                 qty: 1, price:  800 },
-    { desc: 'Documentation & Training',      qty: 1, price:  500 },
+    { desc: 'On-site or Remote Assessment (per hour)',      qty: 2, price:  450 },
+    { desc: 'Software Configuration & Updates',             qty: 1, price:  600 },
+    { desc: 'Network Setup & Security',                     qty: 1, price:  800 },
+    { desc: 'Documentation & User Training',                qty: 1, price:  500 },
+  ],
+  // ── Common add-ons (quick pick) ───────────────────
+  'Add-ons Only': [
+    { desc: 'Domain Registration (1 year)',                 qty: 1, price:  299 },
+    { desc: 'Hosting Setup',                                qty: 1, price:  499 },
+    { desc: 'Professional Email (1 yr, 10 accounts)',       qty: 1, price: 1200 },
+    { desc: 'Logo & Brand Design',                          qty: 1, price: 1499 },
+    { desc: 'SEO Kickstart Package (3 months)',             qty: 1, price: 2499 },
+    { desc: 'Google My Business Setup',                     qty: 1, price:  499 },
+    { desc: 'WhatsApp Chat Widget',                         qty: 1, price:  699 },
+    { desc: 'Payment Gateway Integration',                  qty: 1, price: 1499 },
+    { desc: 'Monthly Maintenance Plan (per month)',         qty: 1, price:  499 },
   ],
 };
 
@@ -315,17 +347,34 @@ async function openQuoteModal(id) {
     document.getElementById('qm-status').value = q.status;
     document.getElementById('qm-notes').value  = q.admin_notes || '';
 
+    // Render addons list if present
+    const addonsArr = (() => {
+      try { return Array.isArray(q.addons) ? q.addons : (q.addons ? JSON.parse(q.addons) : []); }
+      catch { return []; }
+    })();
+    const addonsHtml = addonsArr.length
+      ? `<div class="detail-item detail-full">
+           <div class="di-label">Add-ons Selected</div>
+           <div class="di-val">${addonsArr.map(a =>
+             `<span style="display:inline-flex;align-items:center;gap:.35rem;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:.78rem;margin:.2rem .2rem 0 0">
+               ${esc(a.name)} <span style="color:var(--green);font-weight:600">+R${Number(a.price||0).toLocaleString()}</span>
+             </span>`).join('')}
+           </div>
+         </div>`
+      : '';
+
     document.getElementById('qm-body').innerHTML = `
       <div class="detail-grid">
         <div class="detail-item"><div class="di-label">Name</div><div class="di-val">${esc(q.name)}</div></div>
         <div class="detail-item"><div class="di-label">Company</div><div class="di-val">${esc(q.company || '–')}</div></div>
         <div class="detail-item"><div class="di-label">Email</div><div class="di-val"><a href="mailto:${esc(q.email)}" style="color:var(--green)">${esc(q.email)}</a></div></div>
         <div class="detail-item"><div class="di-label">Phone</div><div class="di-val">${q.phone ? `<a href="https://wa.me/${q.phone.replace(/\D/g,'')}" target="_blank" style="color:#25d366">${esc(q.phone)}</a>` : '–'}</div></div>
-        <div class="detail-item"><div class="di-label">Service</div><div class="di-val">${esc(q.service)}</div></div>
-        <div class="detail-item"><div class="di-label">Budget</div><div class="di-val">${esc(q.budget || '–')}</div></div>
-        <div class="detail-item"><div class="di-label">Wants Consult</div><div class="di-val" style="color:${q.wants_consult?'var(--green)':'var(--muted)'}">${q.wants_consult ? 'Yes' : 'No'}</div></div>
+        <div class="detail-item"><div class="di-label">Package</div><div class="di-val" style="color:var(--blue);font-weight:600">${esc(q.package_tier || q.service)}</div></div>
+        <div class="detail-item"><div class="di-label">Estimate</div><div class="di-val" style="color:var(--green);font-weight:700;font-size:1.05rem">${q.estimate ? `R${Number(q.estimate).toLocaleString()}` : (q.budget || '–')}</div></div>
+        <div class="detail-item"><div class="di-label">Wants Consult</div><div class="di-val" style="color:${q.wants_consult?'var(--green)':'var(--muted)'}">${q.wants_consult ? '✓ Yes' : 'No'}</div></div>
         <div class="detail-item"><div class="di-label">Submitted</div><div class="di-val">${formatDate(q.created_at)}</div></div>
-        <div class="detail-item detail-full"><div class="di-label">Description</div><div class="di-val" style="white-space:pre-wrap">${esc(q.description)}</div></div>
+        ${addonsHtml}
+        <div class="detail-item detail-full"><div class="di-label">Requirements</div><div class="di-val" style="white-space:pre-wrap">${esc(q.description)}</div></div>
       </div>`;
   } catch {
     document.getElementById('qm-body').innerHTML = errorState('Failed to load quote');
@@ -1051,9 +1100,28 @@ function fillClientFromLead() {
     document.getElementById('prm-cname').value    = q.name    || '';
     document.getElementById('prm-cemail').value   = q.email   || '';
     document.getElementById('prm-ccompany').value = q.company || '';
+
     if (!document.getElementById('prm-title').value) {
-      document.getElementById('prm-title').value  = q.service || '';
+      document.getElementById('prm-title').value = q.package_tier || q.service || '';
     }
+
+    // Auto-apply matching template from the client's package selection
+    const pkg = q.package_tier || q.service || '';
+    const templateKey = Object.keys(SERVICE_TEMPLATES).find(k =>
+      pkg.toLowerCase().includes(k.toLowerCase().split(' ')[0])
+    );
+    if (templateKey && !document.querySelector('#prm-items tr')) {
+      applyTemplate(templateKey);
+    }
+
+    // Pre-load add-ons from the lead as extra line items
+    const addons = (() => {
+      try { return Array.isArray(q.addons) ? q.addons : (q.addons ? JSON.parse(q.addons) : []); }
+      catch { return []; }
+    })();
+    addons.forEach(a => {
+      if (a.price > 0) addLineItem(a.name, 1, a.price);
+    });
   }).catch(() => {});
 }
 
