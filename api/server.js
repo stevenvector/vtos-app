@@ -33,8 +33,12 @@ const allowedOrigins = (process.env.CORS_ORIGINS || '')
 
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow requests with no origin (e.g. mobile apps, curl, same-origin server calls)
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    // Allow requests with no origin (curl, mobile apps, server-to-server)
+    if (!origin) return cb(null, true);
+    // If no allowlist is configured, allow all origins (avoids locking out same-domain)
+    if (allowedOrigins.length === 0) return cb(null, true);
+    // Check against configured allowlist
+    if (allowedOrigins.includes(origin)) return cb(null, true);
     cb(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
