@@ -53,15 +53,17 @@ router.post('/upload', requireAuth, requireAdmin,
       return res.status(400).json({ error: 'No image file received.' });
     }
 
-    if (!process.env.CLOUDINARY_CLOUD_NAME) {
+    // Verify all three Cloudinary credentials are present
+    const missingVars = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']
+      .filter(v => !process.env[v]);
+    if (missingVars.length) {
       return res.status(503).json({
-        error: 'Image uploads are not configured yet. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET to your Vercel environment variables.',
+        error: `Image uploads not configured. Missing Vercel env vars: ${missingVars.join(', ')}`,
       });
     }
 
     try {
       const result = await uploadImage(req.file.buffer, {
-        // Use original filename (without extension) as the public_id hint
         public_id: `portfolio_${Date.now()}`,
       });
       res.json({
@@ -72,7 +74,10 @@ router.post('/upload', requireAuth, requireAdmin,
       });
     } catch (err) {
       console.error('[Portfolio] Cloudinary upload error:', err.message);
-      res.status(500).json({ error: 'Image upload failed. Please try again.' });
+      // Return the actual Cloudinary message so it's visible in the admin UI
+      res.status(500).json({
+        error: `Cloudinary: ${err.message || 'Upload failed. Check your API credentials in Vercel.'}`,
+      });
     }
   }
 );
