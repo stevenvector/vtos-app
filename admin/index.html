@@ -328,9 +328,43 @@
               <label>Description *</label>
               <textarea id="pm-desc" rows="3" placeholder="Brief description of the project..." required></textarea>
             </div>
+            <!-- Screenshot upload zone -->
             <div class="fg">
-              <label>Screenshot URL</label>
-              <input type="url" id="pm-screenshot" placeholder="https://..." />
+              <label>Screenshot</label>
+              <!-- Hidden file input -->
+              <input type="file" id="pm-image-file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="handlePortfolioImageSelect(this)" />
+              <!-- Drop / click zone -->
+              <div class="img-upload-zone" id="pm-upload-zone"
+                   onclick="document.getElementById('pm-image-file').click()"
+                   ondragover="event.preventDefault();this.classList.add('drag-over')"
+                   ondragleave="this.classList.remove('drag-over')"
+                   ondrop="handlePortfolioImageDrop(event)">
+                <!-- Idle -->
+                <div class="img-upload-idle" id="pm-upload-idle">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                  <span>Click to upload or drag &amp; drop</span>
+                  <small>JPG · PNG · WebP · GIF &nbsp;·&nbsp; Max 4 MB</small>
+                </div>
+                <!-- Preview -->
+                <div class="img-upload-preview" id="pm-upload-preview">
+                  <img id="pm-preview-img" src="" alt="Preview" />
+                  <button type="button" class="img-clear-btn" onclick="clearPortfolioImage(event)" title="Remove image">✕</button>
+                </div>
+                <!-- Uploading overlay -->
+                <div class="img-uploading" id="pm-uploading">
+                  <div class="upload-spinner"></div>
+                  <span>Uploading…</span>
+                </div>
+              </div>
+              <!-- URL fallback -->
+              <div class="screenshot-url-row">
+                <label>or URL:</label>
+                <input type="url" id="pm-screenshot" placeholder="https://res.cloudinary.com/…" />
+              </div>
             </div>
             <div class="fg">
               <label>Live Project URL</label>

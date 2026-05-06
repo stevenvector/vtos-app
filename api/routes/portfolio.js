@@ -1,9 +1,21 @@
 const express = require('express');
+const multer  = require('multer');
 const { body, validationResult } = require('express-validator');
 const pool    = require('../db/connection');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { uploadImage }  = require('../services/cloudinary');
 
 const router = express.Router();
+
+// ── Multer — memory storage (Vercel has no writable disk) ──
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits:  { fileSize: 4 * 1024 * 1024 }, // 4 MB (Vercel serverless body limit)
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files are accepted.'));
+  },
+});
 
 // ── GET /api/portfolio — public: visible items only ───
 router.get('/', async (req, res) => {
@@ -33,13 +45,45 @@ router.get('/all', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// ── POST /api/portfolio/upload — admin: upload screenshot ──
+router.post('/upload', requireAuth, requireAdmin,
+  upload.single('image'),
+  async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file received.' });
+    }
+
+    if (!process.env.CLOUDINARY_CLOUD_NAME) {
+      return res.status(503).json({
+        error: 'Image uploads are not configured yet. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET to your Vercel environment variables.',
+      });
+    }
+
+    try {
+      const result = await uploadImage(req.file.buffer, {
+        // Use original filename (without extension) as the public_id hint
+        public_id: `portfolio_${Date.now()}`,
+      });
+      res.json({
+        url:       result.secure_url,
+        public_id: result.public_id,
+        width:     result.width,
+        height:    result.height,
+      });
+    } catch (err) {
+      console.error('[Portfolio] Cloudinary upload error:', err.message);
+      res.status(500).json({ error: 'Image upload failed. Please try again.' });
+    }
+  }
+);
+
 // ── POST /api/portfolio — admin: add item ─────────────
 router.post('/', requireAuth, requireAdmin, [
   body('title').trim().notEmpty().withMessage('Title is required'),
   body('tag').isIn(['website','webapp','ecommerce','other']).withMessage('Invalid tag'),
   body('description').trim().notEmpty().withMessage('Description is required'),
-  body('screenshot_url').optional().isURL().withMessage('Must be a valid URL'),
-  body('project_url').optional().isURL().withMessage('Must be a valid URL'),
+  body('screenshot_url').optional({ nullable: true }).isURL({ require_protocol: true }).withMessage('Must be a valid URL'),
+  body('project_url').optional({ nullable: true }).isURL({ require_protocol: true }).withMessage('Must be a valid URL'),
   body('display_order').optional().isInt({ min: 0 }),
   body('is_visible').optional().isBoolean(),
 ], async (req, res) => {

@@ -11,6 +11,7 @@ let editingPortfolioId = null;
 let editingUserId      = null;
 let currentProposalId  = null;
 let lineItemCounter    = 0;
+let portfolioImageFile = null; // pending image file for upload
 
 const SERVICE_TEMPLATES = {
   // ── Website packages ──────────────────────────────
@@ -576,8 +577,12 @@ async function loadPortfolio() {
 
 function openPortfolioForm(id = null) {
   editingPortfolioId = id;
+  portfolioImageFile = null;
   const modal = document.getElementById('portfolioModal');
   document.getElementById('pm-feedback').classList.add('hidden');
+
+  // Always reset the upload zone to idle state first
+  resetPortfolioUploadZone();
 
   if (id) {
     document.getElementById('pm-title').textContent = 'Edit Portfolio Item';
@@ -588,9 +593,16 @@ function openPortfolioForm(id = null) {
       document.getElementById('pm-tag').value        = item.tag;
       document.getElementById('pm-order').value      = item.display_order;
       document.getElementById('pm-desc').value       = item.description;
-      document.getElementById('pm-screenshot').value = item.screenshot_url || '';
       document.getElementById('pm-url').value        = item.project_url || '';
       document.getElementById('pm-visible').checked  = item.is_visible;
+
+      // Pre-populate image preview if there's an existing screenshot
+      if (item.screenshot_url) {
+        document.getElementById('pm-screenshot').value = item.screenshot_url;
+        setPortfolioPreview(item.screenshot_url);
+      } else {
+        document.getElementById('pm-screenshot').value = '';
+      }
     });
   } else {
     document.getElementById('pm-title').textContent = 'Add Portfolio Item';
@@ -601,6 +613,55 @@ function openPortfolioForm(id = null) {
   modal.classList.add('open');
 }
 
+// ── Portfolio upload zone helpers ─────────────────────
+function resetPortfolioUploadZone() {
+  portfolioImageFile = null;
+  document.getElementById('pm-upload-idle').style.display    = '';
+  document.getElementById('pm-upload-preview').style.display = 'none';
+  document.getElementById('pm-uploading').style.display      = 'none';
+  const fileInput = document.getElementById('pm-image-file');
+  if (fileInput) fileInput.value = '';
+}
+
+function setPortfolioPreview(url) {
+  document.getElementById('pm-preview-img').src              = url;
+  document.getElementById('pm-upload-idle').style.display    = 'none';
+  document.getElementById('pm-upload-preview').style.display = '';
+  document.getElementById('pm-uploading').style.display      = 'none';
+}
+
+function _showFilePreview(file) {
+  portfolioImageFile = file;
+  const reader = new FileReader();
+  reader.onload = e => setPortfolioPreview(e.target.result);
+  reader.readAsDataURL(file);
+}
+
+function handlePortfolioImageSelect(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  _showFilePreview(file);
+}
+
+function handlePortfolioImageDrop(event) {
+  event.preventDefault();
+  document.getElementById('pm-upload-zone').classList.remove('drag-over');
+  const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    alert('Only image files are accepted.');
+    return;
+  }
+  _showFilePreview(file);
+}
+
+function clearPortfolioImage(e) {
+  e.stopPropagation();
+  resetPortfolioUploadZone();
+  document.getElementById('pm-screenshot').value = '';
+}
+
+// ── Save portfolio item (with optional image upload) ──
 async function savePortfolioItem(e) {
   e.preventDefault();
   const btn = document.querySelector('#portfolioModal .btn-g');
@@ -608,11 +669,47 @@ async function savePortfolioItem(e) {
   btn.textContent = 'Saving…'; btn.disabled = true;
   fb.classList.add('hidden');
 
+  let screenshotUrl = document.getElementById('pm-screenshot').value || null;
+
+  // If there's a pending image file, upload it to Cloudinary first
+  if (portfolioImageFile) {
+    document.getElementById('pm-uploading').style.display      = '';
+    document.getElementById('pm-upload-preview').style.display = 'none';
+    try {
+      const formData = new FormData();
+      formData.append('image', portfolioImageFile);
+
+      const uploadRes = await fetch(`${API}/portfolio/upload`, {
+        method:  'POST',
+        headers: { Authorization: `Bearer ${adminToken}` },
+        body:    formData,
+      });
+
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) throw new Error(uploadData.error || 'Image upload failed');
+
+      screenshotUrl = uploadData.url;
+      portfolioImageFile = null;
+
+      // Update the URL fallback input and show the final preview
+      document.getElementById('pm-screenshot').value = screenshotUrl;
+      setPortfolioPreview(screenshotUrl);
+    } catch (uploadErr) {
+      document.getElementById('pm-uploading').style.display      = 'none';
+      document.getElementById('pm-upload-preview').style.display = '';
+      fb.className = 'error-msg';
+      fb.textContent = uploadErr.message || 'Image upload failed.';
+      fb.classList.remove('hidden');
+      btn.textContent = 'Save Project'; btn.disabled = false;
+      return;
+    }
+  }
+
   const payload = {
     title:          document.getElementById('pm-title-in').value,
     tag:            document.getElementById('pm-tag').value,
     description:    document.getElementById('pm-desc').value,
-    screenshot_url: document.getElementById('pm-screenshot').value || null,
+    screenshot_url: screenshotUrl,
     project_url:    document.getElementById('pm-url').value || null,
     display_order:  parseInt(document.getElementById('pm-order').value) || 0,
     is_visible:     document.getElementById('pm-visible').checked,
