@@ -26,18 +26,28 @@ app.use(helmet({
 }));
 
 // ── CORS ──────────────────────────────────────────────
-const allowedOrigins = (process.env.CORS_ORIGINS || '')
+// Own domains are always allowed — prevents the app locking itself out
+const VTOS_ORIGINS = [
+  'https://www.vtos.co.za',
+  'https://vtos.co.za',
+  'https://vtos.vercel.app',
+];
+
+const envOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map(o => o.trim())
   .filter(Boolean);
+
+// Merge and deduplicate; preview deployment URLs are allowed via envOrigins
+const allowedOrigins = [...new Set([...VTOS_ORIGINS, ...envOrigins])];
 
 app.use(cors({
   origin: (origin, cb) => {
     // Allow requests with no origin (curl, mobile apps, server-to-server)
     if (!origin) return cb(null, true);
-    // If no allowlist is configured, allow all origins (avoids locking out same-domain)
-    if (allowedOrigins.length === 0) return cb(null, true);
-    // Check against configured allowlist
+    // Allow any *.vercel.app preview URL for this project
+    if (origin.endsWith('.vercel.app')) return cb(null, true);
+    // Check against combined allowlist
     if (allowedOrigins.includes(origin)) return cb(null, true);
     cb(new Error(`CORS: origin ${origin} not allowed`));
   },
