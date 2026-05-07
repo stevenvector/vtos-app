@@ -28,3 +28,10 @@ Thumbs.db
 *.swp
 
 .vercel
+
+# Separate projects / nested repos — must never be deployed with vtos.co.za
+vtos-app/
+hearthstone/
+
+# Sensitive local files
+Email pass.txt
