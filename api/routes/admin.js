@@ -1,5 +1,5 @@
 const express = require('express');
-const { body, validationResult } = require('express-validator');
+const { body, query, validationResult } = require('express-validator');
 const bcrypt  = require('bcryptjs');
 const pool    = require('../db/connection');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
@@ -56,7 +56,16 @@ router.get('/stats', async (req, res) => {
 });
 
 // ── GET /api/admin/users ──────────────────────────────
-router.get('/users', async (req, res) => {
+router.get('/users', [
+  query('limit').optional().isInt({ min: 1, max: 500 }),
+  query('offset').optional().isInt({ min: 0 }),
+  query('role').optional().isIn(['client', 'admin', '']),
+  query('status').optional().isIn(['active', 'disabled', '']),
+  query('q').optional().isString(),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
   const { limit = 50, offset = 0, q = '', role = '', status = '' } = req.query;
   try {
     // Always exclude soft-deleted users from admin lists/stats.

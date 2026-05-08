@@ -319,9 +319,11 @@ async function submitQuote(e) {
   const pkgInput = document.querySelector('input[name="q-package"]:checked');
   if (!pkgInput) {
     const firstCard = document.querySelector('.pkg-grid');
-    if (firstCard) firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    firstCard.style.outline = '2px solid var(--green)';
-    setTimeout(() => { firstCard.style.outline = ''; }, 2000);
+    if (firstCard) {
+      firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      firstCard.style.outline = '2px solid var(--green)';
+      setTimeout(() => { firstCard.style.outline = ''; }, 2000);
+    }
     alert('Please select a package to continue.');
     return;
   }

@@ -82,11 +82,17 @@ router.post('/', submitLimiter, [
 });
 
 // ── GET /api/quotes/my — client: own quotes ───────────
+// Match by submitted_by (user id) primarily so a user changing email
+// keeps seeing their history. Fall back to current email for any pre-
+// auth quote rows submitted before the user registered (submitted_by
+// would be NULL for those).
 router.get('/my', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, name, service, budget, status, wants_consult, created_at, updated_at
-       FROM quotes WHERE email = (SELECT email FROM users WHERE id = $1)
+       FROM quotes
+       WHERE submitted_by = $1
+          OR (submitted_by IS NULL AND email = (SELECT email FROM users WHERE id = $1))
        ORDER BY created_at DESC`,
       [req.user.id]
     );
@@ -103,6 +109,9 @@ router.get('/', requireAuth, requireAdmin, [
   query('limit').optional().isInt({ min: 1, max: 100 }),
   query('offset').optional().isInt({ min: 0 }),
 ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
   const { status, limit = 50, offset = 0 } = req.query;
 
   try {
@@ -141,23 +150,38 @@ router.get('/:id', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // ── PATCH /api/quotes/:id — admin: update status/notes ─
+// Dynamic SET so a field is only touched when the client explicitly sends
+// it. Fixes the old COALESCE behaviour that ignored explicit null and
+// prevented clearing admin_notes once it was set.
 router.patch('/:id', requireAuth, requireAdmin, [
   body('status').optional().isIn(['new','contacted','in_progress','converted','closed']),
-  body('admin_notes').optional().trim(),
+  body('admin_notes').optional({ nullable: true }).trim(),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { status, admin_notes } = req.body;
+  const updates = [];
+  const vals    = [];
+  let idx = 1;
 
+  if ('status' in req.body) {
+    updates.push(`status = $${idx++}`);
+    vals.push(req.body.status);
+  }
+  if ('admin_notes' in req.body) {
+    updates.push(`admin_notes = $${idx++}`);
+    vals.push(req.body.admin_notes || null); // empty/null both clear
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'No fields to update.' });
+  }
+
+  vals.push(req.params.id);
   try {
     const result = await pool.query(
-      `UPDATE quotes SET
-        status      = COALESCE($1, status),
-        admin_notes = COALESCE($2, admin_notes)
-       WHERE id = $3
-       RETURNING *`,
-      [status || null, admin_notes !== undefined ? admin_notes : null, req.params.id]
+      `UPDATE quotes SET ${updates.join(', ')} WHERE id = $${idx} RETURNING *`,
+      vals
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'Quote not found.' });
     res.json(result.rows[0]);
@@ -170,9 +194,11 @@ router.patch('/:id', requireAuth, requireAdmin, [
 // ── DELETE /api/quotes/:id — admin ────────────────────
 router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
-    await pool.query('DELETE FROM quotes WHERE id = $1', [req.params.id]);
+    const result = await pool.query('DELETE FROM quotes WHERE id = $1 RETURNING id', [req.params.id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Quote not found.' });
     res.json({ message: 'Quote deleted.' });
   } catch (err) {
+    console.error('[Quotes] Delete error:', err.message);
     res.status(500).json({ error: 'Delete failed.' });
   }
 });

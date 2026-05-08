@@ -1,5 +1,5 @@
 const express = require('express');
-const { body, validationResult } = require('express-validator');
+const { body, query, validationResult } = require('express-validator');
 const pool    = require('../db/connection');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { generateProposalPDF }       = require('../services/pdf');
@@ -52,7 +52,14 @@ router.get('/client/:id', requireAuth, async (req, res) => {
 });
 
 // ── GET /api/proposals — admin: all proposals ─────────
-router.get('/', requireAuth, requireAdmin, async (req, res) => {
+router.get('/', requireAuth, requireAdmin, [
+  query('status').optional().isIn(VALID_STATUSES),
+  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('offset').optional().isInt({ min: 0 }),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
   const { status, limit = 50, offset = 0 } = req.query;
 
   try {
@@ -153,6 +160,11 @@ router.post('/', requireAuth, requireAdmin, [
   body('lead_id').optional({ nullable: true }).isInt(),
   body('valid_until').optional({ nullable: true }).isDate().withMessage('Invalid date'),
   body('items').isArray({ min: 1 }).withMessage('At least one line item is required'),
+  // Per-item validation guards against NaN sneaking into the totals when a
+  // client sends quantity:'abc' or unit_price:''.
+  body('items.*.description').trim().notEmpty().withMessage('Each item needs a description'),
+  body('items.*.quantity').isFloat({ gt: 0 }).withMessage('Quantity must be > 0'),
+  body('items.*.unit_price').isFloat({ min: 0 }).withMessage('Unit price must be ≥ 0'),
   body('notes').optional().trim(),
   body('discount').optional().isFloat({ min: 0 }),
   body('tax_rate').optional().isFloat({ min: 0, max: 100 }),
@@ -211,17 +223,24 @@ router.post('/', requireAuth, requireAdmin, [
 });
 
 // ── PATCH /api/proposals/:id — admin: update ──────────
+// Dynamic SET — only fields present in req.body are updated. This fixes
+// the previous COALESCE behaviour that prevented clearing notes/
+// client_company/valid_until/lead_id once they were set. Totals are
+// recomputed when items/discount/tax_rate move.
 router.patch('/:id', requireAuth, requireAdmin, [
   body('title').optional().trim().notEmpty(),
   body('status').optional().isIn(VALID_STATUSES),
   body('valid_until').optional({ nullable: true }).isDate(),
   body('items').optional().isArray({ min: 1 }),
-  body('notes').optional().trim(),
+  body('items.*.description').optional().trim().notEmpty(),
+  body('items.*.quantity').optional().isFloat({ gt: 0 }).withMessage('Quantity must be > 0'),
+  body('items.*.unit_price').optional().isFloat({ min: 0 }).withMessage('Unit price must be ≥ 0'),
+  body('notes').optional({ nullable: true }).trim(),
   body('discount').optional().isFloat({ min: 0 }),
   body('tax_rate').optional().isFloat({ min: 0, max: 100 }),
   body('client_name').optional().trim().notEmpty(),
   body('client_email').optional().isEmail().normalizeEmail(),
-  body('client_company').optional().trim(),
+  body('client_company').optional({ nullable: true }).trim(),
   body('lead_id').optional({ nullable: true }).isInt(),
 ], async (req, res) => {
   const errors = validationResult(req);
@@ -232,52 +251,45 @@ router.patch('/:id', requireAuth, requireAdmin, [
     if (existing.rowCount === 0) return res.status(404).json({ error: 'Proposal not found.' });
 
     const cur = existing.rows[0];
-    const {
-      title, status, valid_until, items, notes,
-      discount, tax_rate, client_name, client_email, client_company, lead_id,
-    } = req.body;
+    const b = req.body;
 
-    const finalItems    = items      !== undefined ? items      : (Array.isArray(cur.items) ? cur.items : JSON.parse(cur.items || '[]'));
-    const finalDiscount = discount   !== undefined ? parseFloat(discount)  : parseFloat(cur.discount);
-    const finalTaxRate  = tax_rate   !== undefined ? parseFloat(tax_rate)  : parseFloat(cur.tax_rate);
+    // Always recompute totals from the resolved items/discount/tax_rate so
+    // they stay consistent with whatever's in the row after this update.
+    const finalItems    = 'items'    in b ? b.items                : (Array.isArray(cur.items) ? cur.items : JSON.parse(cur.items || '[]'));
+    const finalDiscount = 'discount' in b ? parseFloat(b.discount) : parseFloat(cur.discount);
+    const finalTaxRate  = 'tax_rate' in b ? parseFloat(b.tax_rate) : parseFloat(cur.tax_rate);
 
     const subtotal = finalItems.reduce((s, i) => s + (parseFloat(i.quantity) * parseFloat(i.unit_price)), 0);
     const taxAmt   = (subtotal - finalDiscount) * (finalTaxRate / 100);
     const total    = subtotal - finalDiscount + taxAmt;
 
+    // Build SET clause dynamically. `'X' in body` distinguishes "field absent"
+    // from "field present but null/empty" — letting us actually clear fields.
+    const sets = [];
+    const vals = [];
+    let idx = 1;
+    const set = (col, value) => { sets.push(`${col} = $${idx++}`); vals.push(value); };
+
+    if ('title'          in b) set('title',          b.title);
+    if ('status'         in b) set('status',         b.status);
+    if ('valid_until'    in b) set('valid_until',    b.valid_until || null);
+    if ('client_name'    in b) set('client_name',    b.client_name);
+    if ('client_email'   in b) set('client_email',   b.client_email);
+    if ('client_company' in b) set('client_company', b.client_company || null);
+    if ('lead_id'        in b) set('lead_id',        b.lead_id || null);
+    if ('notes'          in b) set('notes',          b.notes || null);
+
+    // Items + recomputed financials always go together.
+    set('items',    JSON.stringify(finalItems));
+    set('discount', finalDiscount.toFixed(2));
+    set('tax_rate', finalTaxRate);
+    set('subtotal', subtotal.toFixed(2));
+    set('total',    total.toFixed(2));
+
+    vals.push(req.params.id);
     const result = await pool.query(
-      `UPDATE proposals SET
-        title          = COALESCE($1,  title),
-        status         = COALESCE($2,  status),
-        valid_until    = COALESCE($3,  valid_until),
-        items          = $4,
-        notes          = COALESCE($5,  notes),
-        discount       = $6,
-        tax_rate       = $7,
-        subtotal       = $8,
-        total          = $9,
-        client_name    = COALESCE($10, client_name),
-        client_email   = COALESCE($11, client_email),
-        client_company = COALESCE($12, client_company),
-        lead_id        = COALESCE($13, lead_id)
-       WHERE id = $14
-       RETURNING *`,
-      [
-        title        || null,
-        status       || null,
-        valid_until  !== undefined ? (valid_until || null) : null,
-        JSON.stringify(finalItems),
-        notes        !== undefined ? (notes || null) : null,
-        finalDiscount.toFixed(2),
-        finalTaxRate,
-        subtotal.toFixed(2),
-        total.toFixed(2),
-        client_name   || null,
-        client_email  || null,
-        client_company !== undefined ? (client_company || null) : null,
-        lead_id       !== undefined ? (lead_id || null) : null,
-        req.params.id,
-      ]
+      `UPDATE proposals SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`,
+      vals
     );
     res.json(result.rows[0]);
   } catch (err) {

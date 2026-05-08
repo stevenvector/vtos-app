@@ -1,5 +1,5 @@
 const express = require('express');
-const { body, validationResult } = require('express-validator');
+const { body, query, validationResult } = require('express-validator');
 const pool    = require('../db/connection');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { notifyAdminNewCourier, confirmClientCourier } = require('../services/email');
@@ -116,6 +116,14 @@ router.get('/:id', requireAuth, async (req, res) => {
     }
 
     booking.status_label = STATUS_LABELS[booking.status];
+
+    // Strip admin-only fields when the requester isn't an admin.
+    // Clients should never see admin_notes — those can contain internal
+    // diagnostics/pricing discussion that's not for the customer.
+    if (req.user.role !== 'admin') {
+      delete booking.admin_notes;
+    }
+
     res.json(booking);
   } catch (err) {
     console.error('[Courier] Get booking error:', err.message);
@@ -124,7 +132,14 @@ router.get('/:id', requireAuth, async (req, res) => {
 });
 
 // ── GET /api/courier — admin: all bookings ────────────
-router.get('/', requireAuth, requireAdmin, async (req, res) => {
+router.get('/', requireAuth, requireAdmin, [
+  query('status').optional().isIn(VALID_STATUSES),
+  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('offset').optional().isInt({ min: 0 }),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
   const { status, limit = 50, offset = 0 } = req.query;
 
   try {
@@ -158,33 +173,39 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // ── PATCH /api/courier/:id — admin: update status ─────
+// Dynamic SET — only fields explicitly present in req.body get touched,
+// so empty string / null can clear admin_notes / return_tracking /
+// return_courier (the old COALESCE pattern silently kept the previous
+// value when null was sent).
 router.patch('/:id', requireAuth, requireAdmin, [
   body('status').optional().isIn(VALID_STATUSES),
-  body('admin_notes').optional().trim(),
-  body('return_tracking').optional().trim(),
-  body('return_courier').optional().trim(),
+  body('admin_notes').optional({ nullable: true }).trim(),
+  body('return_tracking').optional({ nullable: true }).trim(),
+  body('return_courier').optional({ nullable: true }).trim(),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { status, admin_notes, return_tracking, return_courier } = req.body;
+  const b = req.body;
+  const sets = [];
+  const vals = [];
+  let idx = 1;
+  const set = (col, value) => { sets.push(`${col} = $${idx++}`); vals.push(value); };
 
+  if ('status'          in b) set('status',          b.status);
+  if ('admin_notes'     in b) set('admin_notes',     b.admin_notes     || null);
+  if ('return_tracking' in b) set('return_tracking', b.return_tracking || null);
+  if ('return_courier'  in b) set('return_courier',  b.return_courier  || null);
+
+  if (sets.length === 0) {
+    return res.status(400).json({ error: 'No fields to update.' });
+  }
+
+  vals.push(req.params.id);
   try {
     const result = await pool.query(
-      `UPDATE courier_bookings SET
-        status          = COALESCE($1, status),
-        admin_notes     = COALESCE($2, admin_notes),
-        return_tracking = COALESCE($3, return_tracking),
-        return_courier  = COALESCE($4, return_courier)
-       WHERE id = $5
-       RETURNING *`,
-      [
-        status || null,
-        admin_notes !== undefined ? admin_notes : null,
-        return_tracking || null,
-        return_courier  || null,
-        req.params.id,
-      ]
+      `UPDATE courier_bookings SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`,
+      vals
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'Booking not found.' });
 
