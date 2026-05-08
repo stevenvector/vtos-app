@@ -172,22 +172,23 @@ router.post('/', requireAuth, requireAdmin, [
   const total       = subtotal - discountAmt + taxAmt;
 
   try {
-    // Generate quote number: VTOS-Q-YYYY-NNN
-    const yearCountRes = await pool.query(
-      `SELECT COUNT(*) FROM proposals WHERE EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM NOW())`
-    );
-    const seq          = parseInt(yearCountRes.rows[0].count) + 1;
-    const quote_number = `VTOS-Q-${new Date().getFullYear()}-${String(seq).padStart(3, '0')}`;
-
+    // Atomic quote-number generation:
+    // The number is built INSIDE the INSERT using nextval() on a Postgres
+    // sequence — this eliminates the race condition that the old
+    // `SELECT COUNT(*)+1` approach had under concurrent submissions.
+    // Format: VTOS-Q-YYYY-NNN (numbers don't reset per year — globally sequential).
     const result = await pool.query(
       `INSERT INTO proposals
          (quote_number, lead_id, client_name, client_email, client_company,
           title, valid_until, status, items, notes,
           subtotal, discount, tax_rate, total, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'draft',$8,$9,$10,$11,$12,$13,$14)
+       VALUES (
+         'VTOS-Q-' || EXTRACT(YEAR FROM NOW())::int
+                   || '-' || LPAD(nextval('proposal_number_seq')::text, 3, '0'),
+         $1,$2,$3,$4,$5,$6,'draft',$7,$8,$9,$10,$11,$12,$13
+       )
        RETURNING *`,
       [
-        quote_number,
         lead_id  || null,
         client_name, client_email,
         client_company || null,

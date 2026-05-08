@@ -39,7 +39,7 @@ router.get('/stats', async (req, res) => {
         SELECT COUNT(*) AS total,
                COUNT(*) FILTER (WHERE role = 'client') AS clients
         FROM users
-        WHERE role != 'admin'
+        WHERE role != 'admin' AND deleted_at IS NULL
       `),
     ]);
 
@@ -59,7 +59,8 @@ router.get('/stats', async (req, res) => {
 router.get('/users', async (req, res) => {
   const { limit = 50, offset = 0, q = '', role = '', status = '' } = req.query;
   try {
-    const conditions = [];
+    // Always exclude soft-deleted users from admin lists/stats.
+    const conditions = ['deleted_at IS NULL'];
     const vals = [];
     let idx = 1;
 
@@ -75,7 +76,7 @@ router.get('/users', async (req, res) => {
     if (status === 'active')   { conditions.push(`is_active = true`); }
     if (status === 'disabled') { conditions.push(`is_active = false`); }
 
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const where = `WHERE ${conditions.join(' AND ')}`;
 
     const [result, count, stats] = await Promise.all([
       pool.query(
@@ -92,6 +93,7 @@ router.get('/users', async (req, res) => {
           COUNT(*) FILTER (WHERE role = 'admin')        AS admins,
           COUNT(*) FILTER (WHERE role = 'client')       AS clients
         FROM users
+        WHERE deleted_at IS NULL
       `),
     ]);
 
@@ -112,7 +114,7 @@ router.get('/users/:id', async (req, res) => {
     const [user, activity] = await Promise.all([
       pool.query(
         `SELECT id, first_name, last_name, email, phone, role, is_active, created_at
-         FROM users WHERE id = $1`,
+         FROM users WHERE id = $1 AND deleted_at IS NULL`,
         [req.params.id]
       ),
       pool.query(`
@@ -158,7 +160,11 @@ router.post('/users', [
 
   const { first_name, last_name, email, password, phone, role = 'client' } = req.body;
   try {
-    const exists = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    // Only living users hold email uniqueness; deleted users have rewritten emails.
+    const exists = await pool.query(
+      'SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL',
+      [email]
+    );
     if (exists.rowCount > 0) return res.status(409).json({ error: 'Email already in use.' });
 
     const password_hash = await bcrypt.hash(password, 12);
@@ -211,7 +217,8 @@ router.put('/users/:id', [
 
     vals.push(req.params.id);
     const result = await pool.query(
-      `UPDATE users SET ${updates.join(', ')} WHERE id = $${idx}
+      `UPDATE users SET ${updates.join(', ')}
+       WHERE id = $${idx} AND deleted_at IS NULL
        RETURNING id, first_name, last_name, email, phone, role, is_active, created_at`,
       vals
     );
@@ -225,14 +232,32 @@ router.put('/users/:id', [
 });
 
 // ── DELETE /api/admin/users/:id ───────────────────────
+// Soft delete: marks the user as deleted, deactivates them, and anonymises
+// their PII. Preserves their courier history, quotes, and proposals (the
+// previous hard delete cascaded their courier_bookings into oblivion).
+// Email is rewritten with a unique suffix so the original address is freed
+// for future re-registration.
 router.delete('/users/:id', async (req, res) => {
   try {
     const result = await pool.query(
-      `DELETE FROM users WHERE id = $1 AND role != 'admin' RETURNING id`,
+      `UPDATE users SET
+        is_active       = false,
+        deleted_at      = NOW(),
+        first_name      = 'Deleted',
+        last_name       = 'User',
+        phone           = NULL,
+        email           = 'deleted_' || id || '_' || EXTRACT(EPOCH FROM NOW())::bigint || '@vtos.invalid',
+        password_hash   = '',
+        reset_token     = NULL,
+        reset_token_exp = NULL
+       WHERE id = $1 AND role != 'admin' AND deleted_at IS NULL
+       RETURNING id`,
       [req.params.id]
     );
-    if (result.rowCount === 0) return res.status(404).json({ error: 'User not found or protected.' });
-    res.json({ message: 'User deleted.' });
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found, already deleted, or admin (protected).' });
+    }
+    res.json({ message: 'User deleted. History preserved; email freed for re-registration.' });
   } catch (err) {
     console.error('[Admin] Delete user error:', err.message);
     res.status(500).json({ error: 'Delete failed.' });
@@ -243,12 +268,15 @@ router.delete('/users/:id', async (req, res) => {
 router.patch('/users/:id/toggle', async (req, res) => {
   try {
     const result = await pool.query(
-      `UPDATE users SET is_active = NOT is_active WHERE id = $1 AND role != 'admin' RETURNING id, email, is_active`,
+      `UPDATE users SET is_active = NOT is_active
+       WHERE id = $1 AND role != 'admin' AND deleted_at IS NULL
+       RETURNING id, email, is_active`,
       [req.params.id]
     );
-    if (result.rowCount === 0) return res.status(404).json({ error: 'User not found or protected.' });
+    if (result.rowCount === 0) return res.status(404).json({ error: 'User not found, deleted, or protected.' });
     res.json(result.rows[0]);
   } catch (err) {
+    console.error('[Admin] Toggle user error:', err.message);
     res.status(500).json({ error: 'Update failed.' });
   }
 });

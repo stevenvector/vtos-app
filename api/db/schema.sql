@@ -172,3 +172,38 @@ DO $$ BEGIN
     BEFORE UPDATE ON proposals
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- ── Atomic quote-number sequence ─────────────────────
+-- Replaces the racy `SELECT COUNT(*)+1` approach in the proposals route.
+-- Numbers are globally sequential (do not reset per year) — this is a
+-- deliberate choice: continuous numbering is standard for accounting/audit
+-- trails, and removes a whole class of race conditions.
+-- Format remains VTOS-Q-YYYY-NNN; LPAD pads to 3 but won't truncate past 999.
+CREATE SEQUENCE IF NOT EXISTS proposal_number_seq;
+
+-- Backfill: align the sequence with any existing proposals so we never
+-- collide with VTOS-Q-2026-001, VTOS-Q-2026-002, ... that were created
+-- under the old generator.
+DO $$
+DECLARE
+  max_num int;
+BEGIN
+  SELECT COALESCE(MAX(SUBSTRING(quote_number FROM 'VTOS-Q-\d{4}-(\d+)')::int), 0)
+    INTO max_num
+    FROM proposals;
+  -- setval(seq, val, is_called=true) -> next nextval() returns val+1
+  -- setval(seq, 1,   is_called=false) -> next nextval() returns 1
+  IF max_num > 0 THEN
+    PERFORM setval('proposal_number_seq', max_num, true);
+  ELSE
+    PERFORM setval('proposal_number_seq', 1, false);
+  END IF;
+END $$;
+
+-- ── Soft-delete for users ────────────────────────────
+-- Hard-deleting a user used to cascade-delete their courier_bookings.
+-- We mark as deleted instead; history (quotes/proposals/courier) is preserved.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+-- Partial index — only living users participate in lookups.
+CREATE INDEX IF NOT EXISTS idx_users_alive ON users(id) WHERE deleted_at IS NULL;
