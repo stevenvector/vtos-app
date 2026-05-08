@@ -1,13 +1,24 @@
-const express = require('express');
+const express   = require('express');
+const rateLimit = require('express-rate-limit');
 const { body, query, validationResult } = require('express-validator');
-const pool    = require('../db/connection');
+const pool      = require('../db/connection');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { notifyAdminNewQuote, confirmClientQuote } = require('../services/email');
 
 const router = express.Router();
 
+// Rate-limit ONLY public quote submissions (10/hr/IP). Admin GET/PATCH/DELETE
+// stay uncapped so the dashboard remains usable.
+const submitLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many quote submissions from this IP. Please try again later.' },
+});
+
 // ── POST /api/quotes — public submission ──────────────
-router.post('/', [
+router.post('/', submitLimiter, [
   body('name').trim().notEmpty().withMessage('Name is required'),
   body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
   body('service').trim().notEmpty().withMessage('Service is required'),

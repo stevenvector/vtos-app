@@ -399,10 +399,13 @@ async function loadPortfolioItems() {
       div.setAttribute('data-aos', 'fade-up');
       div.setAttribute('data-aos-delay', String((i % 3) * 100));
 
+      const imgUrl     = safeUrl(item.screenshot_url);
+      const projectUrl = safeUrl(item.project_url);
+
       div.innerHTML = `
-        <div class="portfolio-img ${item.screenshot_url ? '' : 'placeholder-img'}">
-          ${item.screenshot_url
-            ? `<img src="${item.screenshot_url}" alt="${escHtml(item.title)}" loading="lazy" onerror="this.parentElement.classList.add('placeholder-img');this.remove()" />`
+        <div class="portfolio-img ${imgUrl ? '' : 'placeholder-img'}">
+          ${imgUrl
+            ? `<img src="${imgUrl}" alt="${escHtml(item.title)}" loading="lazy" onerror="this.parentElement.classList.add('placeholder-img');this.remove()" />`
             : `<div class="placeholder-label">
                 <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5" width="32" height="32"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
                 <span>${escHtml(tagLabel[item.tag] || 'Project')}</span>
@@ -413,8 +416,8 @@ async function loadPortfolioItems() {
           <span class="portfolio-tag ${tagClass[item.tag] || ''}">${escHtml(tagLabel[item.tag] || item.tag)}</span>
           <h4>${escHtml(item.title)}</h4>
           <p>${escHtml(item.description)}</p>
-          ${item.project_url
-            ? `<a href="${item.project_url}" class="portfolio-link" target="_blank" rel="noopener">View Project →</a>`
+          ${projectUrl
+            ? `<a href="${projectUrl}" class="portfolio-link" target="_blank" rel="noopener noreferrer">View Project →</a>`
             : ''}
         </div>`;
 
@@ -470,6 +473,14 @@ function escHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// ── Helper: only allow http(s) URLs in href/src ───────
+// Blocks javascript:, data:, vbscript: etc. that could XSS via stored data.
+function safeUrl(url) {
+  if (!url) return '';
+  const s = String(url).trim();
+  return /^https?:\/\//i.test(s) ? escHtml(s) : '';
 }
 
 // ── Console brand ─────────────────────────────────────

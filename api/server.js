@@ -78,15 +78,11 @@ const authLimiter = rateLimit({
   message: { error: 'Too many auth attempts. Please wait 15 minutes.' },
 });
 
-const quoteLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,
-  message: { error: 'Too many quote submissions from this IP.' },
-});
+// Note: quote-submission rate limit is applied only to POST /api/quotes
+// inside the quotes router (so admin GET/PATCH/DELETE aren't capped).
 
 app.use('/api/', generalLimiter);
 app.use('/api/auth/', authLimiter);
-app.use('/api/quotes', quoteLimiter);
 
 // ── API Routes ────────────────────────────────────────
 app.use('/api/auth',      authRoutes);

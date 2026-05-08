@@ -540,11 +540,14 @@ async function loadPortfolio() {
       return;
     }
 
-    el.innerHTML = items.map(item => `
+    el.innerHTML = items.map(item => {
+      const imgUrl     = safeUrl(item.screenshot_url);
+      const projectUrl = safeUrl(item.project_url);
+      return `
       <div class="p-admin-card ${item.is_visible ? '' : 'hidden-item'}">
         <div class="p-admin-img">
-          ${item.screenshot_url
-            ? `<img src="${esc(item.screenshot_url)}" alt="${esc(item.title)}" onerror="this.parentElement.innerHTML='<div class=\\'no-img\\'>No preview</div>'" />`
+          ${imgUrl
+            ? `<img src="${imgUrl}" alt="${esc(item.title)}" onerror="this.parentElement.innerHTML='<div class=\\'no-img\\'>No preview</div>'" />`
             : '<div class="no-img"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><rect x="2" y="3" width="20" height="14" rx="2"/></svg><br>No screenshot</div>'}
           ${!item.is_visible ? '<div class="p-admin-hidden-overlay">Hidden</div>' : ''}
         </div>
@@ -559,11 +562,12 @@ async function loadPortfolio() {
             <button class="btn-outline ${item.is_visible ? 'danger' : 'success'} btn-sm" onclick="togglePortfolio(${item.id})">
               ${item.is_visible ? 'Hide' : 'Show'}
             </button>
-            ${item.project_url ? `<a href="${esc(item.project_url)}" target="_blank" class="btn-outline btn-sm" style="text-decoration:none">View →</a>` : ''}
+            ${projectUrl ? `<a href="${projectUrl}" target="_blank" rel="noopener noreferrer" class="btn-outline btn-sm" style="text-decoration:none">View →</a>` : ''}
             <button class="btn-outline danger btn-sm" onclick="deletePortfolioItem(${item.id}, event)">Delete</button>
           </div>
         </div>
-      </div>`).join('') +
+      </div>`;
+    }).join('') +
       `<div class="p-admin-card" style="border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;min-height:200px;cursor:pointer" onclick="openPortfolioForm()">
         <div style="text-align:center;color:var(--muted)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1433,6 +1437,15 @@ function esc(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// Only allow http(s) URLs in href/src — blocks javascript:, data: etc.
+// Even on admin-only surfaces, a stored bad URL could XSS the next admin
+// who opens this view.
+function safeUrl(url) {
+  if (!url) return '';
+  const s = String(url).trim();
+  return /^https?:\/\//i.test(s) ? esc(s) : '';
 }
 
 function formatDate(str) {
