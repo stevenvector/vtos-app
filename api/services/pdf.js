@@ -25,6 +25,10 @@ const PAGE_H  = 841.89;
 const MARGIN  = 48;
 const CONTENT = PAGE_W - MARGIN * 2;
 
+// Last y-coord we may draw at before bumping into the footer band.
+// Footer is 52pt + a 20pt cushion.
+const SAFE_BOTTOM = PAGE_H - 52 - 20;
+
 function fmt(n) { return `R ${parseFloat(n || 0).toFixed(2)}`; }
 function fmtDate(s) {
   if (!s) return '—';
@@ -54,11 +58,16 @@ function labelValue(doc, label, value, x, y, opts = {}) {
 // ── Main export ───────────────────────────────────────
 function generateProposalPDF(proposal) {
   return new Promise((resolve, reject) => {
-    const doc    = new PDFDocument({ size: 'A4', margin: 0, info: {
-      Title:   `${proposal.quote_number} — ${proposal.title}`,
-      Author:  'VTOS — Vector Online Solutions',
-      Subject: 'Formal Quotation',
-    }});
+    const doc    = new PDFDocument({
+      size:        'A4',
+      margin:      0,
+      bufferPages: true, // needed so we can stamp the footer on every page at the end
+      info: {
+        Title:   `${proposal.quote_number} — ${proposal.title}`,
+        Author:  'VTOS — Vector Online Solutions',
+        Subject: 'Formal Quotation',
+      },
+    });
     const chunks = [];
     doc.on('data',  c  => chunks.push(c));
     doc.on('end',   () => resolve(Buffer.concat(chunks)));
@@ -138,20 +147,38 @@ function generateProposalPDF(proposal) {
       total: { x: MARGIN + CONTENT * 0.80, w: CONTENT * 0.20 },
     };
 
-    // Table header
-    rect(doc, MARGIN, y, CONTENT, 22, '#1f2937');
-    const thY = y + 7;
-    doc.fillColor('#9ca3af').font('Helvetica-Bold').fontSize(8);
-    doc.text('DESCRIPTION',  c.desc.x  + 6, thY, { width: c.desc.w  - 6 });
-    doc.text('QTY',          c.qty.x   + 4, thY, { width: c.qty.w   - 4, align: 'center' });
-    doc.text('UNIT PRICE',   c.price.x + 4, thY, { width: c.price.w - 4, align: 'right' });
-    doc.text('LINE TOTAL',   c.total.x + 4, thY, { width: c.total.w - 8, align: 'right' });
-    y += 22;
+    // Helper: draw the table header band at a given y. Returns the new y.
+    const drawTableHeader = (atY) => {
+      rect(doc, MARGIN, atY, CONTENT, 22, '#1f2937');
+      const thY = atY + 7;
+      doc.fillColor('#9ca3af').font('Helvetica-Bold').fontSize(8);
+      doc.text('DESCRIPTION',  c.desc.x  + 6, thY, { width: c.desc.w  - 6 });
+      doc.text('QTY',          c.qty.x   + 4, thY, { width: c.qty.w   - 4, align: 'center' });
+      doc.text('UNIT PRICE',   c.price.x + 4, thY, { width: c.price.w - 4, align: 'right' });
+      doc.text('LINE TOTAL',   c.total.x + 4, thY, { width: c.total.w - 8, align: 'right' });
+      return atY + 22;
+    };
 
-    // Line items
+    // Helper: start a fresh page for table continuation. Returns new y.
+    const continueTableOnNewPage = () => {
+      doc.addPage();
+      // Mini continuation header so the reader knows it's the same quote.
+      doc.fillColor(C.muted).font('Helvetica').fontSize(9)
+         .text(`${proposal.quote_number} — ${proposal.title} (continued)`,
+               MARGIN, MARGIN, { width: CONTENT, align: 'right' });
+      return drawTableHeader(MARGIN + 24);
+    };
+
+    // Table header
+    y = drawTableHeader(y);
+
+    // Line items — paginate when a row would cross SAFE_BOTTOM.
     items.forEach((item, i) => {
-      const lineTotal = (parseInt(item.quantity, 10) || 0) * (parseFloat(item.unit_price) || 0);
       const rowH = 22;
+      if (y + rowH > SAFE_BOTTOM) {
+        y = continueTableOnNewPage();
+      }
+      const lineTotal = (parseInt(item.quantity, 10) || 0) * (parseFloat(item.unit_price) || 0);
 
       // Alternate stripe
       if (i % 2 === 1) rect(doc, MARGIN, y, CONTENT, rowH, C.stripe);
@@ -170,6 +197,12 @@ function generateProposalPDF(proposal) {
     });
 
     // ══ TOTALS BLOCK ══════════════════════════════════════
+    // Totals + grand total need ~110pt of headroom — push to a new page
+    // if we're already too close to the footer.
+    if (y + 110 > SAFE_BOTTOM) {
+      doc.addPage();
+      y = MARGIN;
+    }
     y += 10;
     rule(doc, y, C.border, 0.5);
     y += 14;
@@ -208,31 +241,50 @@ function generateProposalPDF(proposal) {
 
     // ══ NOTES ═════════════════════════════════════════════
     if (proposal.notes) {
+      // Break to a new page if the notes header itself wouldn't fit.
+      if (y + 40 > SAFE_BOTTOM) {
+        doc.addPage();
+        y = MARGIN;
+      }
       y += 10;
       rule(doc, y, C.border, 0.5);
       y += 14;
       doc.fillColor(C.muted).font('Helvetica-Bold').fontSize(8)
          .text('NOTES & TERMS', MARGIN, y);
       y += 13;
+      // Constrain text height so a very long notes block paginates cleanly
+      // via pdfkit's built-in flow rather than overlapping the footer.
       doc.fillColor(C.text).font('Helvetica').fontSize(10)
-         .text(proposal.notes, MARGIN, y, { width: CONTENT });
-      y = doc.y + 10;
+         .text(proposal.notes, MARGIN, y, {
+           width:  CONTENT,
+           height: SAFE_BOTTOM - y,
+         });
     }
 
     // ══ FOOTER BAND ═══════════════════════════════════════
-    const footerY = PAGE_H - 52;
-    rect(doc, 0, footerY, PAGE_W, 52, C.surface);
-    rect(doc, 0, footerY, PAGE_W, 3, C.green);
-    doc.fillColor('#6b7280').font('Helvetica').fontSize(8.5)
-       .text(
-         `Vector Online Solutions  ·  vtechonlinesolutions@gmail.com  ·  +27 73 418 5106  ·  ${(process.env.APP_URL || 'https://vtos.vercel.app').replace(/^https?:\/\//, '')}`,
-         MARGIN, footerY + 12, { width: CONTENT, align: 'center' }
-       );
-    doc.fillColor('#374151').font('Helvetica').fontSize(8)
-       .text(
-         `${proposal.quote_number}  ·  Generated by VTOS`,
-         MARGIN, footerY + 30, { width: CONTENT, align: 'center' }
-       );
+    // Draw the footer on every page so the bottom band is consistent.
+    const drawFooter = () => {
+      const footerY = PAGE_H - 52;
+      rect(doc, 0, footerY, PAGE_W, 52, C.surface);
+      rect(doc, 0, footerY, PAGE_W, 3, C.green);
+      doc.fillColor('#6b7280').font('Helvetica').fontSize(8.5)
+         .text(
+           `Vector Online Solutions  ·  vtechonlinesolutions@gmail.com  ·  +27 73 418 5106  ·  ${(process.env.APP_URL || 'https://vtos.vercel.app').replace(/^https?:\/\//, '')}`,
+           MARGIN, footerY + 12, { width: CONTENT, align: 'center' }
+         );
+      doc.fillColor('#374151').font('Helvetica').fontSize(8)
+         .text(
+           `${proposal.quote_number}  ·  Generated by VTOS`,
+           MARGIN, footerY + 30, { width: CONTENT, align: 'center' }
+         );
+    };
+
+    // Iterate through all pages and stamp the footer.
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      drawFooter();
+    }
 
     doc.end();
   });

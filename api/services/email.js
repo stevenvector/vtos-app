@@ -24,17 +24,28 @@ function safeUrl(u) {
 }
 
 // ── Transporter ───────────────────────────────────────
+// Honours explicit SMTP env vars (EMAIL_HOST / EMAIL_PORT / EMAIL_SECURE)
+// when set — needed for Brevo, SendGrid, Mailgun, etc. Falls back to
+// nodemailer's `service: 'gmail'` shortcut when only EMAIL_USER/EMAIL_PASS
+// are configured. Gmail is capped at ~500 sends/day so production should
+// move to a transactional provider.
 function getTransporter() {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     return null; // email not configured — fail silently
   }
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
+  const auth = {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  };
+  if (process.env.EMAIL_HOST) {
+    return nodemailer.createTransport({
+      host:   process.env.EMAIL_HOST,
+      port:   parseInt(process.env.EMAIL_PORT, 10) || 587,
+      secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for 587/STARTTLS
+      auth,
+    });
+  }
+  return nodemailer.createTransport({ service: 'gmail', auth });
 }
 
 async function send(to, subject, html) {

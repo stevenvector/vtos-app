@@ -17,7 +17,9 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_email   ON users(email);
+-- Admin list orders by created_at DESC.
+CREATE INDEX IF NOT EXISTS idx_users_created ON users(created_at DESC);
 
 -- Password reset tokens
 ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token      VARCHAR(255);
@@ -42,9 +44,11 @@ CREATE TABLE IF NOT EXISTS quotes (
   updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_quotes_status    ON quotes(status);
-CREATE INDEX IF NOT EXISTS idx_quotes_created   ON quotes(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_quotes_email     ON quotes(email);
+CREATE INDEX IF NOT EXISTS idx_quotes_status        ON quotes(status);
+CREATE INDEX IF NOT EXISTS idx_quotes_created       ON quotes(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_quotes_email         ON quotes(email);
+-- New: client "my quotes" lookup goes through submitted_by first.
+CREATE INDEX IF NOT EXISTS idx_quotes_submitted_by  ON quotes(submitted_by);
 
 -- Package-driven quoting (safe to run multiple times)
 ALTER TABLE quotes ADD COLUMN IF NOT EXISTS package_tier VARCHAR(100);
@@ -166,6 +170,8 @@ CREATE TABLE IF NOT EXISTS proposals (
 CREATE INDEX IF NOT EXISTS idx_proposals_client_email ON proposals(client_email);
 CREATE INDEX IF NOT EXISTS idx_proposals_status       ON proposals(status);
 CREATE INDEX IF NOT EXISTS idx_proposals_lead_id      ON proposals(lead_id);
+-- Admin list orders by created_at DESC; without this it sorts in-memory.
+CREATE INDEX IF NOT EXISTS idx_proposals_created      ON proposals(created_at DESC);
 
 DO $$ BEGIN
   CREATE TRIGGER trg_proposals_updated_at
