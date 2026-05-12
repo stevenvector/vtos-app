@@ -78,7 +78,7 @@ const BASE = `
       {{BODY}}
     </div>
     <div style="background:#111118;padding:16px 32px;font-size:12px;color:#555;border-top:1px solid #222">
-      Vector Online Solutions · vtechonlinesolutions@gmail.com · +27 73 418 5106
+      Vector Online Solutions · info@vtos.co.za · +27 71 360 1539
     </div>
   </div>
 `;
@@ -164,7 +164,7 @@ async function confirmClientQuote(quote) {
       ${(quote.addons || []).length ? `<p style="margin:8px 0 4px;color:#888;font-size:12px">Selected add-ons: ${esc(quote.addons.map(a => a.name).join(', '))}</p>` : ''}
       <p style="margin:4px 0;color:#ddd"><span style="color:#888;min-width:90px;display:inline-block">Consult:</span> ${quote.wants_consult ? 'Yes — we\'ll be in touch to schedule a call' : 'No'}</p>
     </div>
-    <p style="color:#888;font-size:14px">In the meantime, feel free to WhatsApp us directly at <a href="https://wa.me/27734185106" style="color:#39FF14">+27 73 418 5106</a> if you have any questions.</p>
+    <p style="color:#888;font-size:14px">In the meantime, feel free to WhatsApp us directly at <a href="https://wa.me/27713601539" style="color:#39FF14">+27 71 360 1539</a> if you have any questions.</p>
   `);
   await send(quote.email, 'We received your quote request — VTOS', html);
 }
@@ -185,7 +185,7 @@ async function confirmClientCourier(booking, user) {
       ${booking.estimated_arrival ? `<p style="margin:4px 0;color:#ddd"><span style="color:#888;min-width:140px;display:inline-block">Est. Arrival:</span> ${esc(booking.estimated_arrival)}</p>` : ''}
     </div>
     <p style="color:#ccc;line-height:1.6">We'll update your booking status as your device moves through our workshop. You can track progress anytime in your <a href="${APP_URL()}/dashboard.html" style="color:#39FF14">client dashboard</a>.</p>
-    <p style="color:#888;font-size:14px">Questions? WhatsApp us at <a href="https://wa.me/27734185106" style="color:#39FF14">+27 73 418 5106</a></p>
+    <p style="color:#888;font-size:14px">Questions? WhatsApp us at <a href="https://wa.me/27713601539" style="color:#39FF14">+27 71 360 1539</a></p>
   `);
   await send(user.email, `Courier Booking Confirmed — ${ref}`, html);
 }
@@ -218,7 +218,7 @@ async function sendProposalPDF(proposal, pdfBuffer) {
     </div>
     <p style="color:#ccc;line-height:1.6">
       To accept, decline, or ask any questions, please reply to this email or
-      WhatsApp us at <a href="https://wa.me/27734185106" style="color:#39FF14">+27 73 418 5106</a>.
+      WhatsApp us at <a href="https://wa.me/27713601539" style="color:#39FF14">+27 71 360 1539</a>.
     </p>
     <p style="color:#888;font-size:13px;margin-top:24px">
       You can also log in to your

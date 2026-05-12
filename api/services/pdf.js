@@ -269,7 +269,7 @@ function generateProposalPDF(proposal) {
       rect(doc, 0, footerY, PAGE_W, 3, C.green);
       doc.fillColor('#6b7280').font('Helvetica').fontSize(8.5)
          .text(
-           `Vector Online Solutions  ·  vtechonlinesolutions@gmail.com  ·  +27 73 418 5106  ·  ${(process.env.APP_URL || 'https://vtos.vercel.app').replace(/^https?:\/\//, '')}`,
+           `Vector Online Solutions  ·  info@vtos.co.za  ·  +27 71 360 1539  ·  +27 82 975 0630  ·  ${(process.env.APP_URL || 'https://vtos.vercel.app').replace(/^https?:\/\//, '')}`,
            MARGIN, footerY + 12, { width: CONTENT, align: 'center' }
          );
       doc.fillColor('#374151').font('Helvetica').fontSize(8)
