@@ -214,7 +214,8 @@ function showPage(name) {
     case 'courier':   loadCourier();    break;
     case 'portfolio': loadPortfolio();  break;
     case 'users':     loadUsers();      break;
-    case 'proposals': loadProposals();  break;
+    case 'proposals':   loadProposals();   break;
+    case 'servicedesk': loadServiceDesk(); break;
   }
   // Auto-close sidebar on mobile after navigation
   if (window.innerWidth < 900) closeAdminSidebar();
@@ -1473,4 +1474,14 @@ function emptyState(msg) {
 
 function errorState(msg) {
   return `<div class="error-msg" style="margin:0">${msg}</div>`;
+}
+
+// ── Service Desk ───────────────────────────────────────
+function loadServiceDesk() {
+  // The Cerberus widget script initialises itself automatically via the
+  // data-cerberus-key attribute. We simply ensure the container is visible
+  // and, if the widget exposes a re-init API, call it.
+  if (window.Cerberus && typeof window.Cerberus.init === 'function') {
+    window.Cerberus.init();
+  }
 }
