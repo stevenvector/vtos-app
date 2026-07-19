@@ -643,6 +643,9 @@ select option { background: var(--surface); }
 .badge-accepted { background: rgba(57,255,20,.15); color: #9fff9f; border: 1px solid rgba(57,255,20,.4); }
 .badge-declined { background: rgba(255,80,80,.1); color: #ff8080; border: 1px solid rgba(255,80,80,.3); }
 .badge-expired  { background: rgba(255,255,255,.05); color: var(--muted); border: 1px solid var(--border); }
+.badge-paid      { background: rgba(57,255,20,.15); color: #9fff9f; border: 1px solid rgba(57,255,20,.4); }
+.badge-overdue   { background: rgba(255,80,80,.1); color: #ff8080; border: 1px solid rgba(255,80,80,.3); }
+.badge-cancelled { background: rgba(255,255,255,.05); color: var(--muted); border: 1px solid var(--border); }
 
 /* ── Line items table (inside proposal modal) ────── */
 .li-table { width: 100%; border-collapse: collapse; margin-bottom: .75rem; }

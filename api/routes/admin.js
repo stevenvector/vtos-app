@@ -9,6 +9,36 @@ const router = express.Router();
 // All admin routes require auth + admin role
 router.use(requireAuth, requireAdmin);
 
+// ── GET /api/admin/settings/banking — default banking details ──
+router.get('/settings/banking', async (req, res) => {
+  try {
+    const result = await pool.query("SELECT value FROM app_settings WHERE key = 'banking'");
+    res.json(result.rows[0]?.value || null);
+  } catch (err) {
+    console.error('[Admin] Get banking settings error:', err.message);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// ── PUT /api/admin/settings/banking — save default banking details ──
+router.put('/settings/banking', async (req, res) => {
+  const { cleanBanking } = require('./invoices');
+  const banking = cleanBanking(req.body);
+  if (!banking) return res.status(400).json({ error: 'No valid banking fields provided.' });
+
+  try {
+    await pool.query(
+      `INSERT INTO app_settings (key, value) VALUES ('banking', $1)
+       ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+      [JSON.stringify(banking)]
+    );
+    res.json(banking);
+  } catch (err) {
+    console.error('[Admin] Save banking settings error:', err.message);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
 // ── GET /api/admin/stats ──────────────────────────────
 router.get('/stats', async (req, res) => {
   try {

@@ -246,6 +246,77 @@ async function sendProposalPDF(proposal, pdfBuffer) {
   }
 }
 
+// ── Invoice PDF to client ─────────────────────────────
+async function sendInvoicePDF(invoice, pdfBuffer) {
+  const transporter = getTransporter();
+  if (!transporter) {
+    console.warn('[Email] Not configured — skipping invoice PDF to', invoice.client_email);
+    return;
+  }
+
+  const fmtDate = s => s ? new Date(s).toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+  const fmt     = n  => `R ${parseFloat(n || 0).toFixed(2)}`;
+
+  const banking = (() => {
+    const b = invoice.banking_details;
+    if (!b) return null;
+    try { return typeof b === 'string' ? JSON.parse(b) : b; }
+    catch { return null; }
+  })();
+
+  const bankingBlock = banking ? `
+    <div style="margin:24px 0;padding:20px;background:#111118;border-radius:8px;border-left:3px solid #1E6FD9">
+      <p style="margin:0 0 6px;color:#aaa;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Payment Details</p>
+      ${banking.bank_name      ? `<p style="margin:6px 0;color:#ddd"><span style="color:#888;min-width:140px;display:inline-block">Bank:</span> ${esc(banking.bank_name)}</p>` : ''}
+      ${banking.account_holder ? `<p style="margin:6px 0;color:#ddd"><span style="color:#888;min-width:140px;display:inline-block">Account Holder:</span> ${esc(banking.account_holder)}</p>` : ''}
+      ${banking.account_number ? `<p style="margin:6px 0;color:#ddd"><span style="color:#888;min-width:140px;display:inline-block">Account Number:</span> <strong style="color:#fff;font-family:monospace">${esc(banking.account_number)}</strong></p>` : ''}
+      ${banking.account_type   ? `<p style="margin:6px 0;color:#ddd"><span style="color:#888;min-width:140px;display:inline-block">Account Type:</span> ${esc(banking.account_type)}</p>` : ''}
+      ${banking.branch_code    ? `<p style="margin:6px 0;color:#ddd"><span style="color:#888;min-width:140px;display:inline-block">Branch Code:</span> ${esc(banking.branch_code)}</p>` : ''}
+      <p style="margin:6px 0;color:#ddd"><span style="color:#888;min-width:140px;display:inline-block">Reference:</span> <strong style="color:#39FF14;font-family:monospace">${esc(banking.reference || invoice.invoice_number)}</strong></p>
+    </div>` : '';
+
+  const firstName = String(invoice.client_name || '').split(' ')[0];
+  const html = wrap(`
+    <h2 style="color:#39FF14;margin-top:0">Your Invoice from VTOS</h2>
+    <p style="color:#ccc;line-height:1.6">Hi ${esc(firstName)},</p>
+    <p style="color:#ccc;line-height:1.6">
+      Please find your invoice attached to this email as a PDF.
+      Here's a quick summary:
+    </p>
+    <div style="margin:24px 0;padding:20px;background:#111118;border-radius:8px;border-left:3px solid #39FF14">
+      <p style="margin:0 0 6px;color:#aaa;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Invoice Summary</p>
+      <p style="margin:6px 0;color:#ddd"><span style="color:#888;min-width:120px;display:inline-block">Invoice #:</span> <strong style="color:#39FF14;font-family:monospace">${esc(invoice.invoice_number)}</strong></p>
+      <p style="margin:6px 0;color:#ddd"><span style="color:#888;min-width:120px;display:inline-block">For:</span> ${esc(invoice.title)}</p>
+      <p style="margin:6px 0;color:#ddd"><span style="color:#888;min-width:120px;display:inline-block">Amount Due:</span> <strong style="color:#39FF14">${fmt(invoice.total)}</strong></p>
+      ${invoice.due_date ? `<p style="margin:6px 0;color:#ddd"><span style="color:#888;min-width:120px;display:inline-block">Due Date:</span> <span style="color:#ef4444">${fmtDate(invoice.due_date)}</span></p>` : ''}
+    </div>
+    ${bankingBlock}
+    <p style="color:#ccc;line-height:1.6">
+      Please use the reference above when making payment so we can match it
+      to your account. For any questions, reply to this email or
+      WhatsApp us at <a href="https://wa.me/27713601539" style="color:#39FF14">+27 71 360 1539</a>.
+    </p>
+  `);
+
+  try {
+    await transporter.sendMail({
+      from:        `"VTOS — Vector Online Solutions" <${process.env.EMAIL_USER}>`,
+      to:          invoice.client_email,
+      subject:     `Your Invoice from VTOS — ${invoice.invoice_number}`,
+      html,
+      attachments: [{
+        filename:    `${invoice.invoice_number}.pdf`,
+        content:     pdfBuffer,
+        contentType: 'application/pdf',
+      }],
+    });
+    console.log('[Email] Invoice PDF sent:', invoice.invoice_number, '→', invoice.client_email);
+  } catch (err) {
+    console.error('[Email] Invoice PDF send failed:', err.message);
+    throw err;
+  }
+}
+
 // ── Password reset ────────────────────────────────────
 async function sendPasswordReset(email, resetUrl) {
   // Validate the URL is http(s) before placing it in href; refuse to send otherwise.
@@ -271,4 +342,5 @@ module.exports = {
   confirmClientCourier,
   sendPasswordReset,
   sendProposalPDF,
+  sendInvoicePDF,
 };

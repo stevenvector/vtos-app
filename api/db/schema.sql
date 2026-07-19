@@ -206,6 +206,72 @@ BEGIN
   END IF;
 END $$;
 
+-- ── Banking details on proposals ─────────────────────
+-- Optional JSONB blob ({bank_name, account_holder, account_number,
+-- account_type, branch_code, reference}) — when present it is rendered
+-- as a "Payment Details" block on the quote PDF.
+ALTER TABLE proposals ADD COLUMN IF NOT EXISTS banking_details JSONB;
+
+-- ── Invoices (Invoice Builder) ───────────────────────
+CREATE TABLE IF NOT EXISTS invoices (
+  id              SERIAL PRIMARY KEY,
+  invoice_number  VARCHAR(30)   NOT NULL UNIQUE,
+  proposal_id     INT           REFERENCES proposals(id) ON DELETE SET NULL,
+  client_name     VARCHAR(200)  NOT NULL,
+  client_email    VARCHAR(255)  NOT NULL,
+  client_company  VARCHAR(200),
+  title           VARCHAR(300)  NOT NULL,
+  due_date        DATE,
+  status          VARCHAR(20)   NOT NULL DEFAULT 'draft'
+                  CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'cancelled')),
+  items           JSONB         NOT NULL DEFAULT '[]',
+  notes           TEXT,
+  banking_details JSONB,
+  subtotal        NUMERIC(12,2) NOT NULL DEFAULT 0,
+  discount        NUMERIC(12,2) NOT NULL DEFAULT 0,
+  tax_rate        NUMERIC(5,2)  NOT NULL DEFAULT 0,
+  total           NUMERIC(12,2) NOT NULL DEFAULT 0,
+  created_by      INT           REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_invoices_client_email ON invoices(client_email);
+CREATE INDEX IF NOT EXISTS idx_invoices_status       ON invoices(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_created      ON invoices(created_at DESC);
+
+DO $$ BEGIN
+  CREATE TRIGGER trg_invoices_updated_at
+    BEFORE UPDATE ON invoices
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Atomic invoice-number sequence — same rationale as proposal_number_seq.
+-- Format: VTOS-INV-YYYY-NNN, globally sequential.
+CREATE SEQUENCE IF NOT EXISTS invoice_number_seq;
+
+DO $$
+DECLARE
+  max_num int;
+BEGIN
+  SELECT COALESCE(MAX(SUBSTRING(invoice_number FROM 'VTOS-INV-\d{4}-(\d+)')::int), 0)
+    INTO max_num
+    FROM invoices;
+  IF max_num > 0 THEN
+    PERFORM setval('invoice_number_seq', max_num, true);
+  ELSE
+    PERFORM setval('invoice_number_seq', 1, false);
+  END IF;
+END $$;
+
+-- ── App settings (key/value) ─────────────────────────
+-- Currently holds the admin's default banking details under key 'banking'.
+CREATE TABLE IF NOT EXISTS app_settings (
+  key        VARCHAR(50)  PRIMARY KEY,
+  value      JSONB        NOT NULL,
+  updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
 -- ── Soft-delete for users ────────────────────────────
 -- Hard-deleting a user used to cascade-delete their courier_bookings.
 -- We mark as deleted instead; history (quotes/proposals/courier) is preserved.

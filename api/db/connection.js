@@ -14,9 +14,11 @@ const dbUrl = (process.env.DATABASE_URL || '')
 // MITM on the DB connection). Set DB_SSL_INSECURE=true in env as an
 // emergency escape hatch if a certificate chain issue ever blocks
 // connectivity — we'd rather have a knob than have the site go dark.
-const sslConfig = process.env.DB_SSL_INSECURE === 'true'
-  ? { rejectUnauthorized: false }
-  : { rejectUnauthorized: true };
+const sslConfig = /[?&]sslmode=disable/.test(dbUrl)
+  ? false
+  : process.env.DB_SSL_INSECURE === 'true'
+    ? { rejectUnauthorized: false }
+    : { rejectUnauthorized: true };
 
 if (process.env.DB_SSL_INSECURE === 'true') {
   console.warn('[DB] WARNING: DB_SSL_INSECURE=true — server cert is NOT being verified.');

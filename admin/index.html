@@ -118,6 +118,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
           Quote Builder
         </button>
+        <button class="sb-link" onclick="showPage('invoices')" data-page="invoices">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><path d="M12 11v6M9.5 12.5h3.5a1.25 1.25 0 010 2.5H11a1.25 1.25 0 000 2.5h3.5"/></svg>
+          Invoice Builder
+        </button>
         <button class="sb-link" onclick="showPage('servicedesk')" data-page="servicedesk">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.72A2 2 0 012.18 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 8.15a16 16 0 006.29 6.29l1.52-1.52a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
           Service Desk
@@ -605,6 +609,35 @@
             <!-- Notes -->
             <div class="fg"><label>Notes / Terms</label><textarea id="prm-notes" rows="3" placeholder="Scope, payment terms, assumptions..."></textarea></div>
 
+            <!-- Banking details -->
+            <div style="margin:.25rem 0 .75rem;display:flex;align-items:center;gap:.5rem">
+              <input type="checkbox" id="prm-bank-include" onchange="toggleBanking('prm')" style="width:auto;accent-color:var(--green,#39FF14)" />
+              <label for="prm-bank-include" style="margin:0;cursor:pointer">Include banking details on PDF</label>
+            </div>
+            <div id="prm-banking" class="hidden" style="border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:1rem 1rem .5rem;margin-bottom:1rem">
+              <div class="form-row-2">
+                <div class="fg"><label>Bank Name</label><input type="text" id="prm-bank-name" placeholder="e.g. FNB" /></div>
+                <div class="fg"><label>Account Holder</label><input type="text" id="prm-bank-holder" placeholder="Account holder name" /></div>
+              </div>
+              <div class="form-row-2">
+                <div class="fg"><label>Account Number</label><input type="text" id="prm-bank-number" placeholder="Account number" /></div>
+                <div class="fg">
+                  <label>Account Type</label>
+                  <select id="prm-bank-type">
+                    <option value="">— Select —</option>
+                    <option>Cheque / Current</option>
+                    <option>Savings</option>
+                    <option>Business</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row-2">
+                <div class="fg"><label>Branch Code</label><input type="text" id="prm-bank-branch" placeholder="e.g. 250655" /></div>
+                <div class="fg"><label>Payment Reference</label><input type="text" id="prm-bank-ref" placeholder="Defaults to quote number" /></div>
+              </div>
+              <button type="button" class="btn-outline btn-sm" style="margin-bottom:.5rem" onclick="saveBankingDefaults('prm', event)">Save as my default details</button>
+            </div>
+
             <!-- Discount + Tax -->
             <div class="form-row-2">
               <div class="fg"><label>Discount (R)</label><input type="number" id="prm-discount" value="0" min="0" step="0.01" oninput="recalcTotals()" /></div>
@@ -630,6 +663,172 @@
                 Email Client
               </button>
               <button type="button" class="btn-outline" style="flex:0 0 auto" onclick="document.getElementById('proposalModal').classList.remove('open')">Cancel</button>
+            </div>
+
+          </form>
+        </div>
+      </div>
+
+      <!-- ── Page: Invoice Builder ── -->
+      <section id="page-invoices" class="page">
+        <div class="page-header">
+          <div><h1>Invoice Builder</h1><p>Create and manage invoices with payment details</p></div>
+          <div class="header-actions">
+            <select id="invoiceStatusFilter" onchange="loadInvoices()">
+              <option value="">All Statuses</option>
+              <option value="draft">Draft</option>
+              <option value="sent">Sent</option>
+              <option value="paid">Paid</option>
+              <option value="overdue">Overdue</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <button class="btn-g btn-sm" onclick="openInvoiceModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New Invoice
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div id="invoicesTable">Loading...</div>
+        </div>
+      </section>
+
+      <!-- ── Invoice Builder Modal ── -->
+      <div class="modal-overlay" id="invoiceModal" onclick="closeModal(event,'invoiceModal')">
+        <div class="modal modal-xl">
+          <button class="modal-x" onclick="document.getElementById('invoiceModal').classList.remove('open')">✕</button>
+          <h3 id="inv-modal-title">New Invoice</h3>
+
+          <form onsubmit="saveInvoice(event)">
+
+            <!-- Client details -->
+            <div class="form-row-2">
+              <div class="fg"><label>Client Name *</label><input type="text" id="inv-cname" placeholder="Full name" required /></div>
+              <div class="fg"><label>Client Email *</label><input type="email" id="inv-cemail" placeholder="client@example.com" required /></div>
+            </div>
+            <div class="form-row-2">
+              <div class="fg"><label>Company</label><input type="text" id="inv-ccompany" placeholder="Company name (optional)" /></div>
+              <div class="fg">
+                <label>Source Quote</label>
+                <input type="text" id="inv-source" disabled placeholder="— Not created from a quote —" />
+              </div>
+            </div>
+
+            <!-- Invoice details -->
+            <div class="fg"><label>Invoice Title *</label><input type="text" id="inv-title" placeholder="e.g. Website Redesign — Final Invoice" required /></div>
+            <div class="form-row-2">
+              <div class="fg">
+                <label>Due Date</label>
+                <input type="date" id="inv-due" />
+                <label style="display:flex;align-items:center;gap:.4rem;margin-top:.45rem;font-size:.8rem;cursor:pointer;text-transform:none;letter-spacing:0">
+                  <input type="checkbox" id="inv-no-due" onchange="toggleDueDate()" style="width:auto;accent-color:var(--green,#39FF14)" />
+                  No due date
+                </label>
+              </div>
+              <div class="fg">
+                <label>Status</label>
+                <select id="inv-status">
+                  <option value="draft">Draft</option>
+                  <option value="sent">Sent</option>
+                  <option value="paid">Paid</option>
+                  <option value="overdue">Overdue</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Service templates -->
+            <div style="margin-bottom:.75rem">
+              <label style="margin-bottom:.5rem">Quick Templates</label>
+              <div class="template-pills">
+                <button type="button" class="template-pill" onclick="applyTemplate('Starter Website','inv')">Starter Site</button>
+                <button type="button" class="template-pill" onclick="applyTemplate('Professional Website','inv')">Professional</button>
+                <button type="button" class="template-pill" onclick="applyTemplate('Web Application','inv')">Web App</button>
+                <button type="button" class="template-pill" onclick="applyTemplate('E-Commerce Store','inv')">E-Commerce</button>
+                <button type="button" class="template-pill" onclick="applyTemplate('Hardware Repair','inv')">Repair</button>
+                <button type="button" class="template-pill" onclick="applyTemplate('IT Support','inv')">IT Support</button>
+                <button type="button" class="template-pill" onclick="applyTemplate('Add-ons Only','inv')">Add-ons</button>
+              </div>
+            </div>
+
+            <!-- Line items -->
+            <div style="margin-bottom:.5rem;font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Line Items</div>
+            <div style="overflow-x:auto">
+              <table class="li-table">
+                <thead>
+                  <tr>
+                    <th style="min-width:200px">Description</th>
+                    <th style="width:80px">Qty</th>
+                    <th style="width:120px">Unit Price (R)</th>
+                    <th style="width:100px">Total</th>
+                    <th style="width:36px"></th>
+                  </tr>
+                </thead>
+                <tbody id="inv-items"></tbody>
+              </table>
+            </div>
+            <button type="button" onclick="addLineItem('', 1, 0, 'inv')" class="btn-outline btn-sm" style="margin-bottom:1rem">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Line Item
+            </button>
+
+            <!-- Notes -->
+            <div class="fg"><label>Notes / Terms</label><textarea id="inv-notes" rows="3" placeholder="Payment terms, delivery notes..."></textarea></div>
+
+            <!-- Banking details -->
+            <div style="margin:.25rem 0 .75rem;display:flex;align-items:center;gap:.5rem">
+              <input type="checkbox" id="inv-bank-include" onchange="toggleBanking('inv')" style="width:auto;accent-color:var(--green,#39FF14)" />
+              <label for="inv-bank-include" style="margin:0;cursor:pointer">Include banking details on PDF</label>
+            </div>
+            <div id="inv-banking" class="hidden" style="border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:1rem 1rem .5rem;margin-bottom:1rem">
+              <div class="form-row-2">
+                <div class="fg"><label>Bank Name</label><input type="text" id="inv-bank-name" placeholder="e.g. FNB" /></div>
+                <div class="fg"><label>Account Holder</label><input type="text" id="inv-bank-holder" placeholder="Account holder name" /></div>
+              </div>
+              <div class="form-row-2">
+                <div class="fg"><label>Account Number</label><input type="text" id="inv-bank-number" placeholder="Account number" /></div>
+                <div class="fg">
+                  <label>Account Type</label>
+                  <select id="inv-bank-type">
+                    <option value="">— Select —</option>
+                    <option>Cheque / Current</option>
+                    <option>Savings</option>
+                    <option>Business</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row-2">
+                <div class="fg"><label>Branch Code</label><input type="text" id="inv-bank-branch" placeholder="e.g. 250655" /></div>
+                <div class="fg"><label>Payment Reference</label><input type="text" id="inv-bank-ref" placeholder="Defaults to invoice number" /></div>
+              </div>
+              <button type="button" class="btn-outline btn-sm" style="margin-bottom:.5rem" onclick="saveBankingDefaults('inv', event)">Save as my default details</button>
+            </div>
+
+            <!-- Discount + Tax -->
+            <div class="form-row-2">
+              <div class="fg"><label>Discount (R)</label><input type="number" id="inv-discount" value="0" min="0" step="0.01" oninput="recalcTotals('inv')" /></div>
+              <div class="fg"><label>Tax Rate (%)</label><input type="number" id="inv-tax" value="15" min="0" max="100" step="0.5" oninput="recalcTotals('inv')" /></div>
+            </div>
+
+            <!-- Totals summary -->
+            <div class="proposal-totals">
+              <span class="tot-label">Subtotal</span>   <span class="tot-val" id="inv-subtotal">R 0.00</span>
+              <span class="tot-label">Tax</span>         <span class="tot-val" id="inv-tax-display">R 0.00</span>
+              <span class="tot-label tot-grand">Total</span> <span class="tot-val tot-grand" id="inv-total-display">R 0.00</span>
+            </div>
+
+            <div id="inv-feedback" class="hidden" style="margin-top:1rem"></div>
+            <div style="display:flex;gap:.75rem;margin-top:1.25rem;flex-wrap:wrap">
+              <button type="submit" class="btn-g save-btn" style="flex:1;min-width:140px">Save Invoice</button>
+              <button type="button" id="inv-pdf-btn" class="btn-outline" style="display:none" onclick="downloadInvoicePDF(currentInvoiceId)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download PDF
+              </button>
+              <button type="button" id="inv-email-btn" class="btn-outline success" style="display:none" onclick="emailInvoicePDF(currentInvoiceId, event)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                Email Client
+              </button>
+              <button type="button" class="btn-outline" style="flex:0 0 auto" onclick="document.getElementById('invoiceModal').classList.remove('open')">Cancel</button>
             </div>
 
           </form>

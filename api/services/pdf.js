@@ -55,17 +55,39 @@ function labelValue(doc, label, value, x, y, opts = {}) {
   return y + 11 + (opts.size || 10) + 4;
 }
 
-// ── Main export ───────────────────────────────────────
-function generateProposalPDF(proposal) {
+// ── Document kinds ────────────────────────────────────
+// One renderer serves both the quote (proposal) and invoice PDFs — the
+// differences are the number field, banner label and the deadline field.
+const DOC_KINDS = {
+  quote: {
+    banner:    'FORMAL QUOTATION',
+    subject:   'Formal Quotation',
+    numberOf:  d => d.quote_number,
+    dateLabel: 'VALID UNTIL',
+    dateOf:    d => d.valid_until,
+  },
+  invoice: {
+    banner:    'INVOICE',
+    subject:   'Invoice',
+    numberOf:  d => d.invoice_number,
+    dateLabel: 'DUE DATE',
+    dateOf:    d => d.due_date,
+  },
+};
+
+// ── Main renderer ─────────────────────────────────────
+function generateDocumentPDF(proposal, kindName = 'quote') {
+  const kind      = DOC_KINDS[kindName] || DOC_KINDS.quote;
+  const docNumber = kind.numberOf(proposal);
   return new Promise((resolve, reject) => {
     const doc    = new PDFDocument({
       size:        'A4',
       margin:      0,
       bufferPages: true, // needed so we can stamp the footer on every page at the end
       info: {
-        Title:   `${proposal.quote_number} — ${proposal.title}`,
+        Title:   `${docNumber} — ${proposal.title}`,
         Author:  'VTOS — Vector Online Solutions',
-        Subject: 'Formal Quotation',
+        Subject: kind.subject,
       },
     });
     const chunks = [];
@@ -93,11 +115,11 @@ function generateProposalPDF(proposal) {
     doc.fillColor('#9ca3af').font('Helvetica').fontSize(10)
        .text('Vector Online Solutions', MARGIN, 50);
 
-    // Quote number — top right
+    // Document number — top right
     doc.fillColor('#9ca3af').font('Helvetica').fontSize(9)
-       .text(proposal.quote_number, MARGIN, 28, { width: CONTENT, align: 'right' });
+       .text(docNumber, MARGIN, 28, { width: CONTENT, align: 'right' });
     doc.fillColor(C.green).font('Helvetica-Bold').fontSize(9)
-       .text('FORMAL QUOTATION', MARGIN, 42, { width: CONTENT, align: 'right' });
+       .text(kind.banner, MARGIN, 42, { width: CONTENT, align: 'right' });
 
     let y = 96;
 
@@ -125,11 +147,12 @@ function generateProposalPDF(proposal) {
     const rx = MARGIN + halfW + 20;
     labelValue(doc, 'Issue Date', fmtDate(proposal.created_at), rx, y, { bold: false, size: 10 });
     let yR = doc.y + 8;
-    if (proposal.valid_until) {
+    const deadline = kind.dateOf(proposal);
+    if (deadline) {
       doc.fillColor(C.muted).font('Helvetica').fontSize(8)
-         .text('VALID UNTIL', rx, yR);
+         .text(kind.dateLabel, rx, yR);
       doc.fillColor(C.red).font('Helvetica-Bold').fontSize(10)
-         .text(fmtDate(proposal.valid_until), rx, yR + 11);
+         .text(fmtDate(deadline), rx, yR + 11);
     }
 
     y = Math.max(yAfterClient, doc.y) + 20;
@@ -164,7 +187,7 @@ function generateProposalPDF(proposal) {
       doc.addPage();
       // Mini continuation header so the reader knows it's the same quote.
       doc.fillColor(C.muted).font('Helvetica').fontSize(9)
-         .text(`${proposal.quote_number} — ${proposal.title} (continued)`,
+         .text(`${docNumber} — ${proposal.title} (continued)`,
                MARGIN, MARGIN, { width: CONTENT, align: 'right' });
       return drawTableHeader(MARGIN + 24);
     };
@@ -239,6 +262,52 @@ function generateProposalPDF(proposal) {
        .text(fmt(total), numX, y + 4, { width: numW, align: 'right' });
     y += 38;
 
+    // ══ BANKING / PAYMENT DETAILS ═════════════════════════
+    const banking = (() => {
+      const b = proposal.banking_details;
+      if (!b) return null;
+      try { return typeof b === 'string' ? JSON.parse(b) : b; }
+      catch { return null; }
+    })();
+
+    if (banking && Object.keys(banking).length) {
+      const rows = [
+        ['Bank',           banking.bank_name],
+        ['Account Holder', banking.account_holder],
+        ['Account Number', banking.account_number],
+        ['Account Type',   banking.account_type],
+        ['Branch Code',    banking.branch_code],
+        ['Reference',      banking.reference || docNumber],
+      ].filter(([, v]) => v);
+
+      const perCol   = Math.ceil(rows.length / 2);
+      const boxH     = 34 + perCol * 28;
+
+      if (y + boxH + 10 > SAFE_BOTTOM) {
+        doc.addPage();
+        y = MARGIN;
+      }
+
+      rect(doc, MARGIN, y, CONTENT, boxH, C.stripe);
+      doc.rect(MARGIN, y, CONTENT, boxH).strokeColor(C.border).lineWidth(0.5).stroke();
+      rect(doc, MARGIN, y, 3, boxH, C.green);
+
+      doc.fillColor(C.text).font('Helvetica-Bold').fontSize(9)
+         .text('PAYMENT DETAILS', MARGIN + 16, y + 12);
+
+      const colW = (CONTENT - 32) / 2;
+      rows.forEach(([label, value], i) => {
+        const cx = MARGIN + 16 + (i < perCol ? 0 : colW);
+        const cy = y + 30 + (i % perCol) * 28;
+        doc.fillColor(C.muted).font('Helvetica').fontSize(7.5)
+           .text(label.toUpperCase(), cx, cy, { width: colW - 12 });
+        doc.fillColor(C.text).font('Helvetica-Bold').fontSize(10)
+           .text(String(value), cx, cy + 10, { width: colW - 12 });
+      });
+
+      y += boxH + 14;
+    }
+
     // ══ NOTES ═════════════════════════════════════════════
     if (proposal.notes) {
       // Break to a new page if the notes header itself wouldn't fit.
@@ -274,7 +343,7 @@ function generateProposalPDF(proposal) {
          );
       doc.fillColor('#374151').font('Helvetica').fontSize(8)
          .text(
-           `${proposal.quote_number}  ·  Generated by VTOS`,
+           `${docNumber}  ·  Generated by VTOS`,
            MARGIN, footerY + 30, { width: CONTENT, align: 'center' }
          );
     };
@@ -290,4 +359,7 @@ function generateProposalPDF(proposal) {
   });
 }
 
-module.exports = { generateProposalPDF };
+const generateProposalPDF = (proposal) => generateDocumentPDF(proposal, 'quote');
+const generateInvoicePDF  = (invoice)  => generateDocumentPDF(invoice,  'invoice');
+
+module.exports = { generateProposalPDF, generateInvoicePDF };

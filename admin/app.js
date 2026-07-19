@@ -10,6 +10,9 @@ let currentCourierId   = null;
 let editingPortfolioId = null;
 let editingUserId      = null;
 let currentProposalId  = null;
+let currentInvoiceId   = null;
+let invoiceSourceProposalId = null;
+let bankingDefaults    = null; // cached default banking details (app_settings)
 let lineItemCounter    = 0;
 let portfolioImageFile = null; // pending image file for upload
 
@@ -215,6 +218,7 @@ function showPage(name) {
     case 'portfolio': loadPortfolio();  break;
     case 'users':     loadUsers();      break;
     case 'proposals':   loadProposals();   break;
+    case 'invoices':    loadInvoices();    break;
     case 'servicedesk': loadServiceDesk(); break;
   }
   // Auto-close sidebar on mobile after navigation
@@ -1113,6 +1117,10 @@ async function loadProposals() {
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                   Email
                 </button>
+                <button class="btn-outline btn-sm" title="Create invoice from this quote" onclick="openInvoiceModal(null, ${p.id})">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><path d="M12 11v6M9.5 12.5h3.5a1.25 1.25 0 010 2.5H11a1.25 1.25 0 000 2.5h3.5"/></svg>
+                  Invoice
+                </button>
                 <button class="btn-outline danger btn-sm" title="Delete proposal" onclick="deleteProposal(${p.id},event)">✕</button>
               </td>
             </tr>`).join('')}
@@ -1148,6 +1156,10 @@ async function openProposalModal(id = null) {
       const items = Array.isArray(p.items) ? p.items : JSON.parse(p.items || '[]');
       items.forEach(item => addLineItem(item.description, item.quantity, item.unit_price));
 
+      const banking = typeof p.banking_details === 'string'
+        ? JSON.parse(p.banking_details || 'null') : p.banking_details;
+      setBankingForm('prm', banking);
+
       await loadLeadOptions(p.lead_id);
     } catch {
       document.getElementById('prm-feedback').className = 'error-msg';
@@ -1165,6 +1177,7 @@ async function openProposalModal(id = null) {
     document.getElementById('prm-discount').value = '0';
     document.getElementById('prm-tax').value      = '15';
     document.getElementById('prm-notes').value    = '';
+    setBankingForm('prm', null);
     addLineItem();
     await loadLeadOptions(null);
   }
@@ -1227,32 +1240,34 @@ function fillClientFromLead() {
   }).catch(() => {});
 }
 
-function addLineItem(desc = '', qty = 1, price = 0) {
+// prefix is 'prm' (Quote Builder modal) or 'inv' (Invoice Builder modal) —
+// both modals share the same line-item / totals machinery.
+function addLineItem(desc = '', qty = 1, price = 0, prefix = 'prm') {
   const id    = ++lineItemCounter;
-  const tbody = document.getElementById('prm-items');
+  const tbody = document.getElementById(`${prefix}-items`);
   const tr    = document.createElement('tr');
-  tr.id = `li-${id}`;
+  tr.id = `${prefix}-li-${id}`;
   tr.innerHTML = `
-    <td><input type="text"   class="li-desc"  style="width:100%" placeholder="Service or item description" value="${esc(String(desc))}" oninput="recalcTotals()" /></td>
-    <td><input type="number" class="li-qty"   style="width:100%" value="${Math.round(qty)}"   min="1" step="1" oninput="recalcTotals()" /></td>
-    <td><input type="number" class="li-price" style="width:100%" value="${price}" min="0"    step="0.01" oninput="recalcTotals()" /></td>
+    <td><input type="text"   class="li-desc"  style="width:100%" placeholder="Service or item description" value="${esc(String(desc))}" oninput="recalcTotals('${prefix}')" /></td>
+    <td><input type="number" class="li-qty"   style="width:100%" value="${Math.round(qty)}"   min="1" step="1" oninput="recalcTotals('${prefix}')" /></td>
+    <td><input type="number" class="li-price" style="width:100%" value="${price}" min="0"    step="0.01" oninput="recalcTotals('${prefix}')" /></td>
     <td class="li-total-val">R 0.00</td>
     <td style="text-align:center">
-      <button type="button" onclick="removeLineItem('li-${id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:.2rem .4rem" title="Remove">✕</button>
+      <button type="button" onclick="removeLineItem('${prefix}-li-${id}','${prefix}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:.2rem .4rem" title="Remove">✕</button>
     </td>`;
   tbody.appendChild(tr);
-  recalcTotals();
+  recalcTotals(prefix);
 }
 
-function removeLineItem(rowId) {
+function removeLineItem(rowId, prefix = 'prm') {
   const row = document.getElementById(rowId);
   if (row) row.remove();
-  recalcTotals();
+  recalcTotals(prefix);
 }
 
-function recalcTotals() {
+function recalcTotals(prefix = 'prm') {
   let subtotal = 0;
-  document.querySelectorAll('#prm-items tr').forEach(row => {
+  document.querySelectorAll(`#${prefix}-items tr`).forEach(row => {
     const qty   = parseInt(row.querySelector('.li-qty')?.value,   10) || 0;
     const price = parseFloat(row.querySelector('.li-price')?.value)    || 0;
     const line  = qty * price;
@@ -1261,26 +1276,92 @@ function recalcTotals() {
     if (cell) cell.textContent = `R ${line.toFixed(2)}`;
   });
 
-  const discount = parseFloat(document.getElementById('prm-discount')?.value) || 0;
-  const taxRate  = parseFloat(document.getElementById('prm-tax')?.value)      || 0;
+  const discount = parseFloat(document.getElementById(`${prefix}-discount`)?.value) || 0;
+  const taxRate  = parseFloat(document.getElementById(`${prefix}-tax`)?.value)      || 0;
   const taxAmt   = (subtotal - discount) * (taxRate / 100);
   const total    = subtotal - discount + taxAmt;
 
-  const s = document.getElementById('prm-subtotal');
-  const t = document.getElementById('prm-tax-display');
-  const g = document.getElementById('prm-total-display');
+  const s = document.getElementById(`${prefix}-subtotal`);
+  const t = document.getElementById(`${prefix}-tax-display`);
+  const g = document.getElementById(`${prefix}-total-display`);
   if (s) s.textContent = `R ${subtotal.toFixed(2)}`;
   if (t) t.textContent = `R ${taxAmt.toFixed(2)}`;
   if (g) g.textContent = `R ${total.toFixed(2)}`;
 }
 
-function applyTemplate(name) {
+function applyTemplate(name, prefix = 'prm') {
   const items = SERVICE_TEMPLATES[name];
   if (!items) return;
-  document.getElementById('prm-items').innerHTML = '';
-  lineItemCounter = 0;
-  items.forEach(i => addLineItem(i.desc, i.qty, i.price));
-  recalcTotals();
+  document.getElementById(`${prefix}-items`).innerHTML = '';
+  items.forEach(i => addLineItem(i.desc, i.qty, i.price, prefix));
+  recalcTotals(prefix);
+}
+
+// ── Banking details (shared by both builders) ─────────
+function toggleBanking(prefix) {
+  const on  = document.getElementById(`${prefix}-bank-include`).checked;
+  const box = document.getElementById(`${prefix}-banking`);
+  box.classList.toggle('hidden', !on);
+  // First time it's opened with empty fields — prefill from saved defaults
+  if (on && !document.getElementById(`${prefix}-bank-name`).value
+         && !document.getElementById(`${prefix}-bank-number`).value) {
+    loadBankingDefaults().then(d => { if (d) setBankingForm(prefix, d, true); });
+  }
+}
+
+function setBankingForm(prefix, b, keepCheckbox = false) {
+  document.getElementById(`${prefix}-bank-name`).value   = b?.bank_name      || '';
+  document.getElementById(`${prefix}-bank-holder`).value = b?.account_holder || '';
+  document.getElementById(`${prefix}-bank-number`).value = b?.account_number || '';
+  document.getElementById(`${prefix}-bank-type`).value   = b?.account_type   || '';
+  document.getElementById(`${prefix}-bank-branch`).value = b?.branch_code    || '';
+  document.getElementById(`${prefix}-bank-ref`).value    = b?.reference      || '';
+  if (!keepCheckbox) {
+    const has = !!(b && (b.bank_name || b.account_number));
+    document.getElementById(`${prefix}-bank-include`).checked = has;
+    document.getElementById(`${prefix}-banking`).classList.toggle('hidden', !has);
+  }
+}
+
+function getBankingForm(prefix) {
+  if (!document.getElementById(`${prefix}-bank-include`).checked) return null;
+  const b = {
+    bank_name:      document.getElementById(`${prefix}-bank-name`).value.trim(),
+    account_holder: document.getElementById(`${prefix}-bank-holder`).value.trim(),
+    account_number: document.getElementById(`${prefix}-bank-number`).value.trim(),
+    account_type:   document.getElementById(`${prefix}-bank-type`).value.trim(),
+    branch_code:    document.getElementById(`${prefix}-bank-branch`).value.trim(),
+    reference:      document.getElementById(`${prefix}-bank-ref`).value.trim(),
+  };
+  Object.keys(b).forEach(k => { if (!b[k]) delete b[k]; });
+  return Object.keys(b).length ? b : null;
+}
+
+async function loadBankingDefaults() {
+  if (bankingDefaults !== null) return bankingDefaults;
+  try {
+    const res = await apiFetch('/admin/settings/banking');
+    bankingDefaults = res.ok ? await res.json() : null;
+  } catch { bankingDefaults = null; }
+  return bankingDefaults;
+}
+
+async function saveBankingDefaults(prefix, e) {
+  const btn = e?.target?.closest('button');
+  const b   = getBankingForm(prefix);
+  if (!b) { alert('Fill in at least one banking field first.'); return; }
+  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+  try {
+    const res = await apiFetch('/admin/settings/banking', { method: 'PUT', body: JSON.stringify(b) });
+    if (!res.ok) throw new Error();
+    bankingDefaults = await res.json();
+    if (btn) btn.textContent = '✓ Saved as default';
+  } catch {
+    alert('Could not save banking defaults.');
+    if (btn) btn.textContent = 'Save as my default details';
+  } finally {
+    if (btn) setTimeout(() => { btn.textContent = 'Save as my default details'; btn.disabled = false; }, 2000);
+  }
 }
 
 async function saveProposal(e) {
@@ -1316,6 +1397,7 @@ async function saveProposal(e) {
     status:         document.getElementById('prm-status').value,
     items,
     notes:    document.getElementById('prm-notes').value    || null,
+    banking_details: getBankingForm('prm'),
     discount: parseFloat(document.getElementById('prm-discount').value) || 0,
     tax_rate: parseFloat(document.getElementById('prm-tax').value)      || 0,
   };
@@ -1403,6 +1485,325 @@ async function emailProposalPDF(id, e) {
       }
       // Refresh table so status updates to "sent" if it was draft
       loadProposals();
+    } else {
+      alert(data.error || 'Failed to send email.');
+      if (btn) { btn.innerHTML = originalHTML; btn.disabled = false; }
+    }
+  } catch {
+    alert('Failed to send email. Please check your email configuration.');
+    if (btn) { btn.innerHTML = originalHTML; btn.disabled = false; }
+  }
+}
+
+// ── Invoices ──────────────────────────────────────────
+async function loadInvoices() {
+  const status = document.getElementById('invoiceStatusFilter')?.value || '';
+  const el = document.getElementById('invoicesTable');
+  el.innerHTML = '<div class="empty-state">Loading...</div>';
+
+  try {
+    const res  = await apiFetch(`/invoices?${status ? `status=${status}&` : ''}limit=100`);
+    const data = await res.json();
+
+    if (!data.invoices?.length) {
+      el.innerHTML = emptyState('No invoices yet. Create one from scratch or from a quote!');
+      return;
+    }
+
+    el.innerHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Invoice #</th>
+            <th>Client</th>
+            <th>Title</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Due Date</th>
+            <th>Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.invoices.map(v => `
+            <tr onclick="openInvoiceModal(${v.id})">
+              <td><code style="color:var(--green);font-size:.78rem">${esc(v.invoice_number)}</code></td>
+              <td>
+                <div class="td-name">${esc(v.client_name)}</div>
+                <div class="td-muted">${esc(v.client_email)}</div>
+              </td>
+              <td>${esc(v.title)}</td>
+              <td style="font-weight:700;color:var(--green)">R ${parseFloat(v.total).toFixed(2)}</td>
+              <td><span class="badge badge-${v.status}">${v.status}</span></td>
+              <td class="td-date">${v.due_date ? formatDate(v.due_date) : '–'}</td>
+              <td class="td-date">${formatDate(v.created_at)}</td>
+              <td class="td-actions" onclick="event.stopPropagation()">
+                <button class="btn-outline btn-sm" title="Download PDF" onclick="downloadInvoicePDF(${v.id})">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  PDF
+                </button>
+                <button class="btn-outline success btn-sm" title="Email PDF to client" onclick="emailInvoicePDF(${v.id}, event)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  Email
+                </button>
+                <button class="btn-outline danger btn-sm" title="Delete invoice" onclick="deleteInvoice(${v.id},event)">✕</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="padding:.75rem 1rem;font-size:.8rem;color:var(--muted)">${data.total} total invoices</div>`;
+  } catch {
+    el.innerHTML = errorState('Failed to load invoices');
+  }
+}
+
+// "No due date" toggle — clears and disables the due-date input so an
+// invoice can be saved (or updated) without a payment deadline.
+function toggleDueDate() {
+  const off = document.getElementById('inv-no-due').checked;
+  const due = document.getElementById('inv-due');
+  due.disabled = off;
+  if (off) due.value = '';
+}
+
+function setDueDateState(dateValue) {
+  document.getElementById('inv-due').value      = dateValue || '';
+  document.getElementById('inv-no-due').checked = !dateValue;
+  toggleDueDate();
+}
+
+// openInvoiceModal(id)                — edit an existing invoice
+// openInvoiceModal(null, proposalId)  — new invoice prefilled from a quote
+async function openInvoiceModal(id = null, fromProposalId = null) {
+  currentInvoiceId        = id;
+  invoiceSourceProposalId = null;
+  document.getElementById('inv-items').innerHTML = '';
+  document.getElementById('inv-feedback').classList.add('hidden');
+  document.getElementById('inv-source').value = '';
+
+  const fb = document.getElementById('inv-feedback');
+
+  if (id) {
+    document.getElementById('inv-modal-title').textContent = 'Edit Invoice';
+    try {
+      const res = await apiFetch(`/invoices/${id}`);
+      const v   = await res.json();
+      invoiceSourceProposalId = v.proposal_id || null;
+      document.getElementById('inv-title').value    = v.title;
+      document.getElementById('inv-cname').value    = v.client_name;
+      document.getElementById('inv-cemail').value   = v.client_email;
+      document.getElementById('inv-ccompany').value = v.client_company || '';
+      setDueDateState(v.due_date ? v.due_date.split('T')[0] : '');
+      document.getElementById('inv-status').value   = v.status;
+      document.getElementById('inv-discount').value = parseFloat(v.discount) || 0;
+      document.getElementById('inv-tax').value      = parseFloat(v.tax_rate) || 0;
+      document.getElementById('inv-notes').value    = v.notes || '';
+      document.getElementById('inv-source').value   = v.source_quote_number || '';
+
+      const items = Array.isArray(v.items) ? v.items : JSON.parse(v.items || '[]');
+      items.forEach(item => addLineItem(item.description, item.quantity, item.unit_price, 'inv'));
+
+      const banking = typeof v.banking_details === 'string'
+        ? JSON.parse(v.banking_details || 'null') : v.banking_details;
+      setBankingForm('inv', banking);
+    } catch {
+      fb.className = 'error-msg';
+      fb.textContent = 'Failed to load invoice.';
+      fb.classList.remove('hidden');
+    }
+  } else if (fromProposalId) {
+    // New invoice prefilled from an existing quote/proposal
+    document.getElementById('inv-modal-title').textContent = 'New Invoice from Quote';
+    try {
+      const res = await apiFetch(`/proposals/${fromProposalId}`);
+      const p   = await res.json();
+      invoiceSourceProposalId = p.id;
+      document.getElementById('inv-title').value    = p.title;
+      document.getElementById('inv-cname').value    = p.client_name;
+      document.getElementById('inv-cemail').value   = p.client_email;
+      document.getElementById('inv-ccompany').value = p.client_company || '';
+      document.getElementById('inv-due').value      = '';
+      document.getElementById('inv-no-due').checked = false;
+      toggleDueDate();
+      document.getElementById('inv-status').value   = 'draft';
+      document.getElementById('inv-discount').value = parseFloat(p.discount) || 0;
+      document.getElementById('inv-tax').value      = parseFloat(p.tax_rate) || 0;
+      document.getElementById('inv-notes').value    = p.notes || '';
+      document.getElementById('inv-source').value   = p.quote_number || '';
+
+      const items = Array.isArray(p.items) ? p.items : JSON.parse(p.items || '[]');
+      items.forEach(item => addLineItem(item.description, item.quantity, item.unit_price, 'inv'));
+
+      // Carry over the quote's banking details, else fall back to saved defaults
+      const banking = typeof p.banking_details === 'string'
+        ? JSON.parse(p.banking_details || 'null') : p.banking_details;
+      if (banking) {
+        setBankingForm('inv', banking);
+      } else {
+        setBankingForm('inv', null);
+        const d = await loadBankingDefaults();
+        if (d) {
+          setBankingForm('inv', d, true);
+          document.getElementById('inv-bank-include').checked = true;
+          document.getElementById('inv-banking').classList.remove('hidden');
+        }
+      }
+    } catch {
+      fb.className = 'error-msg';
+      fb.textContent = 'Failed to load the source quote.';
+      fb.classList.remove('hidden');
+    }
+  } else {
+    document.getElementById('inv-modal-title').textContent = 'New Invoice';
+    document.getElementById('inv-title').value    = '';
+    document.getElementById('inv-cname').value    = '';
+    document.getElementById('inv-cemail').value   = '';
+    document.getElementById('inv-ccompany').value = '';
+    document.getElementById('inv-due').value      = '';
+    document.getElementById('inv-no-due').checked = false;
+    toggleDueDate();
+    document.getElementById('inv-status').value   = 'draft';
+    document.getElementById('inv-discount').value = '0';
+    document.getElementById('inv-tax').value      = '15';
+    document.getElementById('inv-notes').value    = '';
+    setBankingForm('inv', null);
+    addLineItem('', 1, 0, 'inv');
+    // Invoices almost always carry banking details — pre-tick with defaults
+    const d = await loadBankingDefaults();
+    if (d) {
+      setBankingForm('inv', d, true);
+      document.getElementById('inv-bank-include').checked = true;
+      document.getElementById('inv-banking').classList.remove('hidden');
+    }
+  }
+
+  // Show PDF buttons only when editing an existing invoice
+  const pdfBtn   = document.getElementById('inv-pdf-btn');
+  const emailBtn = document.getElementById('inv-email-btn');
+  if (pdfBtn)   pdfBtn.style.display   = id ? 'inline-flex' : 'none';
+  if (emailBtn) emailBtn.style.display = id ? 'inline-flex' : 'none';
+
+  recalcTotals('inv');
+  document.getElementById('invoiceModal').classList.add('open');
+}
+
+async function saveInvoice(e) {
+  e.preventDefault();
+  const btn = document.querySelector('#invoiceModal .save-btn');
+  const fb  = document.getElementById('inv-feedback');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  fb.classList.add('hidden');
+
+  const items = [];
+  document.querySelectorAll('#inv-items tr').forEach(row => {
+    const desc  = row.querySelector('.li-desc')?.value?.trim() || '';
+    const qty   = parseInt(row.querySelector('.li-qty')?.value,   10) || 1;
+    const price = parseFloat(row.querySelector('.li-price')?.value) || 0;
+    if (desc) items.push({ description: desc, quantity: qty, unit_price: price });
+  });
+
+  if (!items.length) {
+    fb.className = 'error-msg';
+    fb.textContent = 'Please add at least one line item.';
+    fb.classList.remove('hidden');
+    btn.textContent = 'Save Invoice'; btn.disabled = false;
+    return;
+  }
+
+  const payload = {
+    title:          document.getElementById('inv-title').value,
+    client_name:    document.getElementById('inv-cname').value,
+    client_email:   document.getElementById('inv-cemail').value,
+    client_company: document.getElementById('inv-ccompany').value || null,
+    proposal_id:    invoiceSourceProposalId || null,
+    due_date:       document.getElementById('inv-due').value || null,
+    status:         document.getElementById('inv-status').value,
+    items,
+    notes:           document.getElementById('inv-notes').value || null,
+    banking_details: getBankingForm('inv'),
+    discount: parseFloat(document.getElementById('inv-discount').value) || 0,
+    tax_rate: parseFloat(document.getElementById('inv-tax').value)      || 0,
+  };
+
+  try {
+    const res = currentInvoiceId
+      ? await apiFetch(`/invoices/${currentInvoiceId}`, { method: 'PATCH', body: JSON.stringify(payload) })
+      : await apiFetch('/invoices',                      { method: 'POST',  body: JSON.stringify(payload) });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.errors?.[0]?.msg || err.error || 'Save failed');
+    }
+
+    fb.className = 'success-msg';
+    fb.textContent = currentInvoiceId ? 'Invoice updated!' : 'Invoice created!';
+    fb.classList.remove('hidden');
+    loadInvoices();
+    setTimeout(() => document.getElementById('invoiceModal').classList.remove('open'), 700);
+  } catch (err) {
+    fb.className = 'error-msg';
+    fb.textContent = err.message || 'Save failed.';
+    fb.classList.remove('hidden');
+  } finally {
+    btn.textContent = 'Save Invoice'; btn.disabled = false;
+  }
+}
+
+async function deleteInvoice(id, e) {
+  e.stopPropagation();
+  if (!confirm('Delete this invoice? This cannot be undone.')) return;
+  await apiFetch(`/invoices/${id}`, { method: 'DELETE' });
+  loadInvoices();
+}
+
+async function downloadInvoicePDF(id) {
+  try {
+    const res = await apiFetch(`/invoices/${id}/pdf`);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || 'Could not generate PDF.');
+      return;
+    }
+    const cd       = res.headers.get('Content-Disposition') || '';
+    const match    = cd.match(/filename="?([^"]+)"?/);
+    const filename = match ? match[1] : `VTOS-Invoice-${id}.pdf`;
+
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Failed to download PDF. Please try again.');
+  }
+}
+
+async function emailInvoicePDF(id, e) {
+  if (e) e.stopPropagation();
+  const btn = e?.target?.closest('button');
+
+  const originalHTML = btn?.innerHTML;
+  if (btn) { btn.innerHTML = 'Sending…'; btn.disabled = true; }
+
+  try {
+    const res  = await apiFetch(`/invoices/${id}/email`, { method: 'POST' });
+    const data = await res.json();
+
+    if (res.ok) {
+      if (btn) {
+        btn.innerHTML = '✓ Sent!';
+        btn.classList.add('success');
+        setTimeout(() => {
+          btn.innerHTML  = originalHTML;
+          btn.classList.remove('success');
+          btn.disabled   = false;
+        }, 3000);
+      }
+      loadInvoices();
     } else {
       alert(data.error || 'Failed to send email.');
       if (btn) { btn.innerHTML = originalHTML; btn.disabled = false; }
