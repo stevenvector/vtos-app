@@ -118,6 +118,14 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
           Quote Builder
         </button>
+        <button class="sb-link" onclick="showPage('workproposals')" data-page="workproposals">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><polyline points="9 14 11 16 15 12"/></svg>
+          Proposals
+        </button>
+        <button class="sb-link" onclick="showPage('reports')" data-page="reports">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="8" y1="17" x2="8" y2="13"/><line x1="12" y1="17" x2="12" y2="11"/><line x1="16" y1="17" x2="16" y2="15"/></svg>
+          Client Reports
+        </button>
         <button class="sb-link" onclick="showPage('invoices')" data-page="invoices">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><path d="M12 11v6M9.5 12.5h3.5a1.25 1.25 0 010 2.5H11a1.25 1.25 0 000 2.5h3.5"/></svg>
           Invoice Builder
@@ -831,6 +839,168 @@
               <button type="button" class="btn-outline" style="flex:0 0 auto" onclick="document.getElementById('invoiceModal').classList.remove('open')">Cancel</button>
             </div>
 
+          </form>
+        </div>
+      </div>
+
+      <!-- ── Page: Work Proposals ── -->
+      <section id="page-workproposals" class="page">
+        <div class="page-header">
+          <div><h1>Proposals</h1><p>Scope-of-work proposals for clients</p></div>
+          <div class="header-actions">
+            <select id="workPropStatusFilter" onchange="loadWorkProposals()">
+              <option value="">All Statuses</option>
+              <option value="draft">Draft</option>
+              <option value="sent">Sent</option>
+              <option value="accepted">Accepted</option>
+              <option value="declined">Declined</option>
+            </select>
+            <button class="btn-g btn-sm" onclick="openWorkPropModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New Proposal
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div id="workPropsTable">Loading...</div>
+        </div>
+      </section>
+
+      <!-- ── Work Proposal Modal ── -->
+      <div class="modal-overlay" id="workPropModal" onclick="closeModal(event,'workPropModal')">
+        <div class="modal modal-xl">
+          <button class="modal-x" onclick="document.getElementById('workPropModal').classList.remove('open')">✕</button>
+          <h3 id="wp-modal-title">New Proposal</h3>
+
+          <form onsubmit="saveWorkProposal(event)">
+            <div class="form-row-2">
+              <div class="fg"><label>Client Name *</label><input type="text" id="wp-cname" placeholder="Full name" required /></div>
+              <div class="fg"><label>Client Email *</label><input type="email" id="wp-cemail" placeholder="client@example.com" required /></div>
+            </div>
+            <div class="fg"><label>Company</label><input type="text" id="wp-ccompany" placeholder="Company name (optional)" /></div>
+
+            <div class="fg"><label>Proposal Title *</label><input type="text" id="wp-title" placeholder="e.g. E-Commerce Platform Rebuild" required /></div>
+            <div class="form-row-2">
+              <div class="fg"><label>Valid Until</label><input type="date" id="wp-valid" /></div>
+              <div class="fg">
+                <label>Status</label>
+                <select id="wp-status">
+                  <option value="draft">Draft</option>
+                  <option value="sent">Sent</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="declined">Declined</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="fg"><label>Overview</label><textarea id="wp-overview" rows="3" placeholder="Short introduction — what this proposal covers and why..."></textarea></div>
+
+            <div style="margin-bottom:.5rem;font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Proposed Work Items</div>
+            <div id="wp-items"></div>
+            <button type="button" onclick="addWorkItem()" class="btn-outline btn-sm" style="margin-bottom:1rem">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Work Item
+            </button>
+
+            <div class="fg"><label>Notes / Terms</label><textarea id="wp-notes" rows="2" placeholder="Assumptions, exclusions, next steps..."></textarea></div>
+
+            <div id="wp-feedback" class="hidden" style="margin-top:1rem"></div>
+            <div style="display:flex;gap:.75rem;margin-top:1.25rem;flex-wrap:wrap">
+              <button type="submit" class="btn-g save-btn" style="flex:1;min-width:140px">Save Proposal</button>
+              <button type="button" id="wp-pdf-btn" class="btn-outline" style="display:none" onclick="downloadWorkPropPDF(currentWorkPropId)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download PDF
+              </button>
+              <button type="button" class="btn-outline" style="flex:0 0 auto" onclick="document.getElementById('workPropModal').classList.remove('open')">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ── Page: Client Reports ── -->
+      <section id="page-reports" class="page">
+        <div class="page-header">
+          <div><h1>Client Reports</h1><p>Create and manage reports for clients</p></div>
+          <div class="header-actions">
+            <select id="reportTypeFilter" onchange="loadReports()">
+              <option value="">All Types</option>
+              <option value="general">General</option>
+              <option value="progress">Progress</option>
+              <option value="completion">Completion</option>
+              <option value="diagnostic">Diagnostic</option>
+              <option value="maintenance">Maintenance</option>
+            </select>
+            <select id="reportStatusFilter" onchange="loadReports()">
+              <option value="">All Statuses</option>
+              <option value="draft">Draft</option>
+              <option value="final">Final</option>
+              <option value="sent">Sent</option>
+            </select>
+            <button class="btn-g btn-sm" onclick="openReportModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New Report
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div id="reportsTable">Loading...</div>
+        </div>
+      </section>
+
+      <!-- ── Report Modal ── -->
+      <div class="modal-overlay" id="reportModal" onclick="closeModal(event,'reportModal')">
+        <div class="modal modal-xl">
+          <button class="modal-x" onclick="document.getElementById('reportModal').classList.remove('open')">✕</button>
+          <h3 id="rm-modal-title">New Report</h3>
+
+          <form onsubmit="saveReport(event)">
+            <div class="form-row-2">
+              <div class="fg"><label>Client Name *</label><input type="text" id="rm-cname" placeholder="Full name" required /></div>
+              <div class="fg"><label>Client Email *</label><input type="email" id="rm-cemail" placeholder="client@example.com" required /></div>
+            </div>
+            <div class="fg"><label>Company</label><input type="text" id="rm-ccompany" placeholder="Company name (optional)" /></div>
+
+            <div class="fg"><label>Report Title *</label><input type="text" id="rm-title" placeholder="e.g. Q2 Website Maintenance Report" required /></div>
+            <div class="form-row-2">
+              <div class="fg">
+                <label>Report Type</label>
+                <select id="rm-type">
+                  <option value="general">General</option>
+                  <option value="progress">Progress</option>
+                  <option value="completion">Completion</option>
+                  <option value="diagnostic">Diagnostic</option>
+                  <option value="maintenance">Maintenance</option>
+                </select>
+              </div>
+              <div class="fg"><label>Report Date</label><input type="date" id="rm-date" /></div>
+            </div>
+            <div class="fg">
+              <label>Status</label>
+              <select id="rm-status">
+                <option value="draft">Draft</option>
+                <option value="final">Final</option>
+                <option value="sent">Sent</option>
+              </select>
+            </div>
+
+            <div class="fg"><label>Executive Summary</label><textarea id="rm-summary" rows="2" placeholder="Optional short summary shown at the top of the report..."></textarea></div>
+
+            <div style="margin-bottom:.5rem;font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Report Sections</div>
+            <div id="rm-sections"></div>
+            <button type="button" onclick="addReportSection()" class="btn-outline btn-sm" style="margin-bottom:1rem">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Section
+            </button>
+
+            <div id="rm-feedback" class="hidden" style="margin-top:1rem"></div>
+            <div style="display:flex;gap:.75rem;margin-top:1.25rem;flex-wrap:wrap">
+              <button type="submit" class="btn-g save-btn" style="flex:1;min-width:140px">Save Report</button>
+              <button type="button" id="rm-pdf-btn" class="btn-outline" style="display:none" onclick="downloadReportPDF(currentReportId)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download PDF
+              </button>
+              <button type="button" class="btn-outline" style="flex:0 0 auto" onclick="document.getElementById('reportModal').classList.remove('open')">Cancel</button>
+            </div>
           </form>
         </div>
       </div>

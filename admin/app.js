@@ -14,6 +14,10 @@ let currentInvoiceId   = null;
 let invoiceSourceProposalId = null;
 let bankingDefaults    = null; // cached default banking details (app_settings)
 let lineItemCounter    = 0;
+let currentReportId    = null;
+let currentWorkPropId  = null;
+let reportSectionCounter = 0;
+let workItemCounter    = 0;
 let portfolioImageFile = null; // pending image file for upload
 
 const SERVICE_TEMPLATES = {
@@ -219,6 +223,8 @@ function showPage(name) {
     case 'users':     loadUsers();      break;
     case 'proposals':   loadProposals();   break;
     case 'invoices':    loadInvoices();    break;
+    case 'reports':       loadReports();       break;
+    case 'workproposals': loadWorkProposals(); break;
     case 'servicedesk': loadServiceDesk(); break;
   }
   // Auto-close sidebar on mobile after navigation
@@ -1811,6 +1817,457 @@ async function emailInvoicePDF(id, e) {
   } catch {
     alert('Failed to send email. Please check your email configuration.');
     if (btn) { btn.innerHTML = originalHTML; btn.disabled = false; }
+  }
+}
+
+// ── Client Reports ────────────────────────────────────
+const REPORT_TYPE_NAMES = {
+  general: 'General', progress: 'Progress', completion: 'Completion',
+  diagnostic: 'Diagnostic', maintenance: 'Maintenance',
+};
+
+async function loadReports() {
+  const status = document.getElementById('reportStatusFilter')?.value || '';
+  const type   = document.getElementById('reportTypeFilter')?.value   || '';
+  const el = document.getElementById('reportsTable');
+  el.innerHTML = '<div class="empty-state">Loading...</div>';
+
+  try {
+    const qs = [
+      status ? `status=${status}` : '',
+      type   ? `report_type=${type}` : '',
+      'limit=100',
+    ].filter(Boolean).join('&');
+    const res  = await apiFetch(`/reports?${qs}`);
+    const data = await res.json();
+
+    if (!data.reports?.length) {
+      el.innerHTML = emptyState('No reports yet. Create your first client report!');
+      return;
+    }
+
+    el.innerHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Report #</th>
+            <th>Client</th>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Report Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.reports.map(r => `
+            <tr onclick="openReportModal(${r.id})">
+              <td><code style="color:var(--green);font-size:.78rem">${esc(r.report_number)}</code></td>
+              <td>
+                <div class="td-name">${esc(r.client_name)}</div>
+                <div class="td-muted">${esc(r.client_email)}</div>
+              </td>
+              <td>${esc(r.title)}</td>
+              <td>${REPORT_TYPE_NAMES[r.report_type] || esc(r.report_type)}</td>
+              <td><span class="badge badge-${r.status}">${r.status}</span></td>
+              <td class="td-date">${formatDate(r.report_date)}</td>
+              <td class="td-actions" onclick="event.stopPropagation()">
+                <button class="btn-outline btn-sm" title="Download PDF" onclick="downloadReportPDF(${r.id})">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  PDF
+                </button>
+                <button class="btn-outline danger btn-sm" title="Delete report" onclick="deleteReport(${r.id},event)">✕</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="padding:.75rem 1rem;font-size:.8rem;color:var(--muted)">${data.total} total reports</div>`;
+  } catch {
+    el.innerHTML = errorState('Failed to load reports');
+  }
+}
+
+function addReportSection(heading = '', bodyTxt = '') {
+  const id  = ++reportSectionCounter;
+  const div = document.createElement('div');
+  div.className = 'doc-block';
+  div.id = `rs-${id}`;
+  div.innerHTML = `
+    <div class="doc-block-head">
+      <input type="text" class="rs-heading" placeholder="Section heading (e.g. Work Completed)" value="${esc(String(heading))}" />
+      <button type="button" class="doc-block-x" onclick="removeDocBlock('rs-${id}')" title="Remove section">✕</button>
+    </div>
+    <textarea class="rs-body" rows="4" placeholder="Section content...">${esc(String(bodyTxt))}</textarea>`;
+  document.getElementById('rm-sections').appendChild(div);
+}
+
+function removeDocBlock(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+async function openReportModal(id = null) {
+  currentReportId = id;
+  document.getElementById('rm-sections').innerHTML = '';
+  reportSectionCounter = 0;
+  document.getElementById('rm-feedback').classList.add('hidden');
+
+  if (id) {
+    document.getElementById('rm-modal-title').textContent = 'Edit Report';
+    try {
+      const res = await apiFetch(`/reports/${id}`);
+      const r   = await res.json();
+      document.getElementById('rm-title').value    = r.title;
+      document.getElementById('rm-cname').value    = r.client_name;
+      document.getElementById('rm-cemail').value   = r.client_email;
+      document.getElementById('rm-ccompany').value = r.client_company || '';
+      document.getElementById('rm-type').value     = r.report_type || 'general';
+      document.getElementById('rm-date').value     = r.report_date ? r.report_date.split('T')[0] : '';
+      document.getElementById('rm-status').value   = r.status;
+      document.getElementById('rm-summary').value  = r.summary || '';
+
+      const sections = Array.isArray(r.sections) ? r.sections : JSON.parse(r.sections || '[]');
+      sections.forEach(s => addReportSection(s.heading, s.body));
+      if (!sections.length) addReportSection();
+    } catch {
+      document.getElementById('rm-feedback').className = 'error-msg';
+      document.getElementById('rm-feedback').textContent = 'Failed to load report.';
+      document.getElementById('rm-feedback').classList.remove('hidden');
+    }
+  } else {
+    document.getElementById('rm-modal-title').textContent = 'New Report';
+    document.getElementById('rm-title').value    = '';
+    document.getElementById('rm-cname').value    = '';
+    document.getElementById('rm-cemail').value   = '';
+    document.getElementById('rm-ccompany').value = '';
+    document.getElementById('rm-type').value     = 'general';
+    document.getElementById('rm-date').value     = new Date().toISOString().split('T')[0];
+    document.getElementById('rm-status').value   = 'draft';
+    document.getElementById('rm-summary').value  = '';
+    addReportSection();
+  }
+
+  const pdfBtn = document.getElementById('rm-pdf-btn');
+  if (pdfBtn) pdfBtn.style.display = id ? 'inline-flex' : 'none';
+
+  document.getElementById('reportModal').classList.add('open');
+}
+
+async function saveReport(e) {
+  e.preventDefault();
+  const btn = document.querySelector('#reportModal .save-btn');
+  const fb  = document.getElementById('rm-feedback');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  fb.classList.add('hidden');
+
+  const sections = [];
+  document.querySelectorAll('#rm-sections .doc-block').forEach(block => {
+    const heading = block.querySelector('.rs-heading')?.value?.trim() || '';
+    const bodyTxt = block.querySelector('.rs-body')?.value?.trim()    || '';
+    if (heading && bodyTxt) sections.push({ heading, body: bodyTxt });
+  });
+
+  if (!sections.length) {
+    fb.className = 'error-msg';
+    fb.textContent = 'Please add at least one section with a heading and content.';
+    fb.classList.remove('hidden');
+    btn.textContent = 'Save Report'; btn.disabled = false;
+    return;
+  }
+
+  const payload = {
+    title:          document.getElementById('rm-title').value,
+    client_name:    document.getElementById('rm-cname').value,
+    client_email:   document.getElementById('rm-cemail').value,
+    client_company: document.getElementById('rm-ccompany').value || null,
+    report_type:    document.getElementById('rm-type').value,
+    report_date:    document.getElementById('rm-date').value || null,
+    status:         document.getElementById('rm-status').value,
+    summary:        document.getElementById('rm-summary').value || null,
+    sections,
+  };
+
+  try {
+    const res = currentReportId
+      ? await apiFetch(`/reports/${currentReportId}`, { method: 'PATCH', body: JSON.stringify(payload) })
+      : await apiFetch('/reports',                    { method: 'POST',  body: JSON.stringify(payload) });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.errors?.[0]?.msg || err.error || 'Save failed');
+    }
+
+    fb.className = 'success-msg';
+    fb.textContent = currentReportId ? 'Report updated!' : 'Report created!';
+    fb.classList.remove('hidden');
+    loadReports();
+    setTimeout(() => document.getElementById('reportModal').classList.remove('open'), 700);
+  } catch (err) {
+    fb.className = 'error-msg';
+    fb.textContent = err.message || 'Save failed.';
+    fb.classList.remove('hidden');
+  } finally {
+    btn.textContent = 'Save Report'; btn.disabled = false;
+  }
+}
+
+async function deleteReport(id, e) {
+  e.stopPropagation();
+  if (!confirm('Delete this report? This cannot be undone.')) return;
+  await apiFetch(`/reports/${id}`, { method: 'DELETE' });
+  loadReports();
+}
+
+async function downloadReportPDF(id) {
+  try {
+    const res = await apiFetch(`/reports/${id}/pdf`);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || 'Could not generate PDF.');
+      return;
+    }
+    const cd       = res.headers.get('Content-Disposition') || '';
+    const match    = cd.match(/filename="?([^"]+)"?/);
+    const filename = match ? match[1] : `VTOS-Report-${id}.pdf`;
+
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch {
+    alert('Failed to download PDF. Please try again.');
+  }
+}
+
+// ── Work Proposals ────────────────────────────────────
+async function loadWorkProposals() {
+  const status = document.getElementById('workPropStatusFilter')?.value || '';
+  const el = document.getElementById('workPropsTable');
+  el.innerHTML = '<div class="empty-state">Loading...</div>';
+
+  try {
+    const res  = await apiFetch(`/work-proposals?${status ? `status=${status}&` : ''}limit=100`);
+    const data = await res.json();
+
+    if (!data.proposals?.length) {
+      el.innerHTML = emptyState('No proposals yet. Create your first work proposal!');
+      return;
+    }
+
+    el.innerHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Proposal #</th>
+            <th>Client</th>
+            <th>Title</th>
+            <th>Items</th>
+            <th>Status</th>
+            <th>Valid Until</th>
+            <th>Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.proposals.map(p => {
+            const items = Array.isArray(p.work_items) ? p.work_items : [];
+            return `
+            <tr onclick="openWorkPropModal(${p.id})">
+              <td><code style="color:var(--green);font-size:.78rem">${esc(p.proposal_number)}</code></td>
+              <td>
+                <div class="td-name">${esc(p.client_name)}</div>
+                <div class="td-muted">${esc(p.client_email)}</div>
+              </td>
+              <td>${esc(p.title)}</td>
+              <td style="text-align:center">${items.length}</td>
+              <td><span class="badge badge-${p.status}">${p.status}</span></td>
+              <td class="td-date">${p.valid_until ? formatDate(p.valid_until) : '–'}</td>
+              <td class="td-date">${formatDate(p.created_at)}</td>
+              <td class="td-actions" onclick="event.stopPropagation()">
+                <button class="btn-outline btn-sm" title="Download PDF" onclick="downloadWorkPropPDF(${p.id})">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  PDF
+                </button>
+                <button class="btn-outline danger btn-sm" title="Delete proposal" onclick="deleteWorkProposal(${p.id},event)">✕</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      <div style="padding:.75rem 1rem;font-size:.8rem;color:var(--muted)">${data.total} total proposals</div>`;
+  } catch {
+    el.innerHTML = errorState('Failed to load proposals');
+  }
+}
+
+function addWorkItem(item = {}) {
+  const id  = ++workItemCounter;
+  const div = document.createElement('div');
+  div.className = 'doc-block';
+  div.id = `wi-${id}`;
+  div.innerHTML = `
+    <div class="doc-block-head">
+      <input type="text" class="wi-title" placeholder="Work item title (e.g. Storefront Development)" value="${esc(String(item.title || ''))}" />
+      <button type="button" class="doc-block-x" onclick="removeDocBlock('wi-${id}')" title="Remove item">✕</button>
+    </div>
+    <textarea class="wi-desc" rows="3" placeholder="What this work involves...">${esc(String(item.description || ''))}</textarea>
+    <div class="form-row-2" style="margin-top:.5rem">
+      <input type="text" class="wi-timeline" placeholder="Timeline (e.g. 2 weeks) — optional" value="${esc(String(item.timeline || ''))}" />
+      <input type="text" class="wi-estimate" placeholder="Estimate (e.g. R 12,000) — optional" value="${esc(String(item.estimate || ''))}" />
+    </div>`;
+  document.getElementById('wp-items').appendChild(div);
+}
+
+async function openWorkPropModal(id = null) {
+  currentWorkPropId = id;
+  document.getElementById('wp-items').innerHTML = '';
+  workItemCounter = 0;
+  document.getElementById('wp-feedback').classList.add('hidden');
+
+  if (id) {
+    document.getElementById('wp-modal-title').textContent = 'Edit Proposal';
+    try {
+      const res = await apiFetch(`/work-proposals/${id}`);
+      const p   = await res.json();
+      document.getElementById('wp-title').value    = p.title;
+      document.getElementById('wp-cname').value    = p.client_name;
+      document.getElementById('wp-cemail').value   = p.client_email;
+      document.getElementById('wp-ccompany').value = p.client_company || '';
+      document.getElementById('wp-valid').value    = p.valid_until ? p.valid_until.split('T')[0] : '';
+      document.getElementById('wp-status').value   = p.status;
+      document.getElementById('wp-overview').value = p.overview || '';
+      document.getElementById('wp-notes').value    = p.notes || '';
+
+      const items = Array.isArray(p.work_items) ? p.work_items : JSON.parse(p.work_items || '[]');
+      items.forEach(item => addWorkItem(item));
+      if (!items.length) addWorkItem();
+    } catch {
+      document.getElementById('wp-feedback').className = 'error-msg';
+      document.getElementById('wp-feedback').textContent = 'Failed to load proposal.';
+      document.getElementById('wp-feedback').classList.remove('hidden');
+    }
+  } else {
+    document.getElementById('wp-modal-title').textContent = 'New Proposal';
+    document.getElementById('wp-title').value    = '';
+    document.getElementById('wp-cname').value    = '';
+    document.getElementById('wp-cemail').value   = '';
+    document.getElementById('wp-ccompany').value = '';
+    // Default validity: 30 days out
+    const valid = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    document.getElementById('wp-valid').value    = valid.toISOString().split('T')[0];
+    document.getElementById('wp-status').value   = 'draft';
+    document.getElementById('wp-overview').value = '';
+    document.getElementById('wp-notes').value    = '';
+    addWorkItem();
+  }
+
+  const pdfBtn = document.getElementById('wp-pdf-btn');
+  if (pdfBtn) pdfBtn.style.display = id ? 'inline-flex' : 'none';
+
+  document.getElementById('workPropModal').classList.add('open');
+}
+
+async function saveWorkProposal(e) {
+  e.preventDefault();
+  const btn = document.querySelector('#workPropModal .save-btn');
+  const fb  = document.getElementById('wp-feedback');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  fb.classList.add('hidden');
+
+  const work_items = [];
+  document.querySelectorAll('#wp-items .doc-block').forEach(block => {
+    const title    = block.querySelector('.wi-title')?.value?.trim()    || '';
+    const desc     = block.querySelector('.wi-desc')?.value?.trim()     || '';
+    const timeline = block.querySelector('.wi-timeline')?.value?.trim() || '';
+    const estimate = block.querySelector('.wi-estimate')?.value?.trim() || '';
+    if (title && desc) {
+      work_items.push({
+        title, description: desc,
+        timeline: timeline || null,
+        estimate: estimate || null,
+      });
+    }
+  });
+
+  if (!work_items.length) {
+    fb.className = 'error-msg';
+    fb.textContent = 'Please add at least one work item with a title and description.';
+    fb.classList.remove('hidden');
+    btn.textContent = 'Save Proposal'; btn.disabled = false;
+    return;
+  }
+
+  const payload = {
+    title:          document.getElementById('wp-title').value,
+    client_name:    document.getElementById('wp-cname').value,
+    client_email:   document.getElementById('wp-cemail').value,
+    client_company: document.getElementById('wp-ccompany').value || null,
+    overview:       document.getElementById('wp-overview').value || null,
+    valid_until:    document.getElementById('wp-valid').value    || null,
+    status:         document.getElementById('wp-status').value,
+    work_items,
+    notes:          document.getElementById('wp-notes').value || null,
+  };
+
+  try {
+    const res = currentWorkPropId
+      ? await apiFetch(`/work-proposals/${currentWorkPropId}`, { method: 'PATCH', body: JSON.stringify(payload) })
+      : await apiFetch('/work-proposals',                       { method: 'POST',  body: JSON.stringify(payload) });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.errors?.[0]?.msg || err.error || 'Save failed');
+    }
+
+    fb.className = 'success-msg';
+    fb.textContent = currentWorkPropId ? 'Proposal updated!' : 'Proposal created!';
+    fb.classList.remove('hidden');
+    loadWorkProposals();
+    setTimeout(() => document.getElementById('workPropModal').classList.remove('open'), 700);
+  } catch (err) {
+    fb.className = 'error-msg';
+    fb.textContent = err.message || 'Save failed.';
+    fb.classList.remove('hidden');
+  } finally {
+    btn.textContent = 'Save Proposal'; btn.disabled = false;
+  }
+}
+
+async function deleteWorkProposal(id, e) {
+  e.stopPropagation();
+  if (!confirm('Delete this proposal? This cannot be undone.')) return;
+  await apiFetch(`/work-proposals/${id}`, { method: 'DELETE' });
+  loadWorkProposals();
+}
+
+async function downloadWorkPropPDF(id) {
+  try {
+    const res = await apiFetch(`/work-proposals/${id}/pdf`);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || 'Could not generate PDF.');
+      return;
+    }
+    const cd       = res.headers.get('Content-Disposition') || '';
+    const match    = cd.match(/filename="?([^"]+)"?/);
+    const filename = match ? match[1] : `VTOS-Proposal-${id}.pdf`;
+
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch {
+    alert('Failed to download PDF. Please try again.');
   }
 }
 

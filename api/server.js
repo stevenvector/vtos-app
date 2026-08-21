@@ -14,6 +14,8 @@ const portfolioRoutes = require('./routes/portfolio');
 const adminRoutes     = require('./routes/admin');
 const proposalRoutes  = require('./routes/proposals');
 const invoiceRoutes   = require('./routes/invoices');
+const reportRoutes    = require('./routes/reports');
+const workPropRoutes  = require('./routes/workProposals');
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
@@ -93,6 +95,8 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/admin',     adminRoutes);
 app.use('/api/proposals', proposalRoutes);
 app.use('/api/invoices',  invoiceRoutes);
+app.use('/api/reports',   reportRoutes);
+app.use('/api/work-proposals', workPropRoutes);
 
 // ── Health check ──────────────────────────────────────
 app.get('/api/health', (req, res) => {

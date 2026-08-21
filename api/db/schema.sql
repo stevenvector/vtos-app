@@ -272,6 +272,101 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+-- ── Client Reports ───────────────────────────────────
+-- Narrative documents for clients (progress / completion / diagnostic
+-- reports). Content is a JSONB array of sections: [{heading, body}].
+CREATE TABLE IF NOT EXISTS client_reports (
+  id              SERIAL PRIMARY KEY,
+  report_number   VARCHAR(30)  NOT NULL UNIQUE,
+  client_name     VARCHAR(200) NOT NULL,
+  client_email    VARCHAR(255) NOT NULL,
+  client_company  VARCHAR(200),
+  title           VARCHAR(300) NOT NULL,
+  report_type     VARCHAR(30)  NOT NULL DEFAULT 'general'
+                  CHECK (report_type IN ('general', 'progress', 'completion', 'diagnostic', 'maintenance')),
+  report_date     DATE         NOT NULL DEFAULT CURRENT_DATE,
+  status          VARCHAR(20)  NOT NULL DEFAULT 'draft'
+                  CHECK (status IN ('draft', 'final', 'sent')),
+  summary         TEXT,
+  sections        JSONB        NOT NULL DEFAULT '[]',
+  created_by      INT REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_status  ON client_reports(status);
+CREATE INDEX IF NOT EXISTS idx_reports_created ON client_reports(created_at DESC);
+
+DO $$ BEGIN
+  CREATE TRIGGER trg_reports_updated_at
+    BEFORE UPDATE ON client_reports
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE SEQUENCE IF NOT EXISTS report_number_seq;
+
+DO $$
+DECLARE
+  max_num int;
+BEGIN
+  SELECT COALESCE(MAX(SUBSTRING(report_number FROM 'VTOS-R-\d{4}-(\d+)')::int), 0)
+    INTO max_num
+    FROM client_reports;
+  IF max_num > 0 THEN
+    PERFORM setval('report_number_seq', max_num, true);
+  ELSE
+    PERFORM setval('report_number_seq', 1, false);
+  END IF;
+END $$;
+
+-- ── Work Proposals ───────────────────────────────────
+-- Scope-of-work documents: what work is proposed, per-item description,
+-- timeline and optional estimate. Distinct from `proposals` (Quote
+-- Builder), which is a priced line-item quotation.
+-- work_items: [{title, description, timeline, estimate}]
+CREATE TABLE IF NOT EXISTS work_proposals (
+  id               SERIAL PRIMARY KEY,
+  proposal_number  VARCHAR(30)  NOT NULL UNIQUE,
+  client_name      VARCHAR(200) NOT NULL,
+  client_email     VARCHAR(255) NOT NULL,
+  client_company   VARCHAR(200),
+  title            VARCHAR(300) NOT NULL,
+  overview         TEXT,
+  valid_until      DATE,
+  status           VARCHAR(20)  NOT NULL DEFAULT 'draft'
+                   CHECK (status IN ('draft', 'sent', 'accepted', 'declined')),
+  work_items       JSONB        NOT NULL DEFAULT '[]',
+  notes            TEXT,
+  created_by       INT REFERENCES users(id) ON DELETE SET NULL,
+  created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_workprops_status  ON work_proposals(status);
+CREATE INDEX IF NOT EXISTS idx_workprops_created ON work_proposals(created_at DESC);
+
+DO $$ BEGIN
+  CREATE TRIGGER trg_workprops_updated_at
+    BEFORE UPDATE ON work_proposals
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE SEQUENCE IF NOT EXISTS work_proposal_number_seq;
+
+DO $$
+DECLARE
+  max_num int;
+BEGIN
+  SELECT COALESCE(MAX(SUBSTRING(proposal_number FROM 'VTOS-P-\d{4}-(\d+)')::int), 0)
+    INTO max_num
+    FROM work_proposals;
+  IF max_num > 0 THEN
+    PERFORM setval('work_proposal_number_seq', max_num, true);
+  ELSE
+    PERFORM setval('work_proposal_number_seq', 1, false);
+  END IF;
+END $$;
+
 -- ── Soft-delete for users ────────────────────────────
 -- Hard-deleting a user used to cascade-delete their courier_bookings.
 -- We mark as deleted instead; history (quotes/proposals/courier) is preserved.
