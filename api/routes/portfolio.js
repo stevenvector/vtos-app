@@ -82,10 +82,14 @@ router.post('/upload', requireAuth, requireAdmin,
   }
 );
 
+// Portfolio tags map onto service divisions for reporting; the public
+// gallery still filters on the finer-grained tag.
+const categoryForTag = tag => (tag === 'led' ? 'led' : 'web');
+
 // ── POST /api/portfolio — admin: add item ─────────────
 router.post('/', requireAuth, requireAdmin, [
   body('title').trim().notEmpty().withMessage('Title is required'),
-  body('tag').isIn(['website','webapp','ecommerce','other']).withMessage('Invalid tag'),
+  body('tag').isIn(['website','webapp','ecommerce','led','other']).withMessage('Invalid tag'),
   body('description').trim().notEmpty().withMessage('Description is required'),
   body('screenshot_url').optional({ nullable: true }).isURL({ require_protocol: true }).withMessage('Must be a valid URL'),
   body('project_url').optional({ nullable: true }).isURL({ require_protocol: true }).withMessage('Must be a valid URL'),
@@ -99,10 +103,11 @@ router.post('/', requireAuth, requireAdmin, [
 
   try {
     const result = await pool.query(
-      `INSERT INTO portfolio_items (title, tag, description, screenshot_url, project_url, display_order, is_visible)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
+      `INSERT INTO portfolio_items (title, tag, description, screenshot_url, project_url, display_order, is_visible, category)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        RETURNING *`,
-      [title, tag, description, screenshot_url || null, project_url || null, display_order ?? 0, is_visible ?? true]
+      [title, tag, description, screenshot_url || null, project_url || null,
+       display_order ?? 0, is_visible ?? true, categoryForTag(tag)]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -114,7 +119,7 @@ router.post('/', requireAuth, requireAdmin, [
 // ── PUT /api/portfolio/:id — admin: update item ───────
 router.put('/:id', requireAuth, requireAdmin, [
   body('title').optional().trim().notEmpty(),
-  body('tag').optional().isIn(['website','webapp','ecommerce','other']),
+  body('tag').optional().isIn(['website','webapp','ecommerce','led','other']),
   body('description').optional().trim().notEmpty(),
   body('screenshot_url').optional({ nullable: true }).isURL(),
   body('project_url').optional({ nullable: true }).isURL(),
@@ -135,8 +140,9 @@ router.put('/:id', requireAuth, requireAdmin, [
         screenshot_url = COALESCE($4, screenshot_url),
         project_url    = COALESCE($5, project_url),
         display_order  = COALESCE($6, display_order),
-        is_visible     = COALESCE($7, is_visible)
-       WHERE id = $8
+        is_visible     = COALESCE($7, is_visible),
+        category       = COALESCE($8, category)
+       WHERE id = $9
        RETURNING *`,
       [
         title || null, tag || null, description || null,
@@ -144,6 +150,7 @@ router.put('/:id', requireAuth, requireAdmin, [
         project_url    !== undefined ? project_url    : null,
         display_order  !== undefined ? display_order  : null,
         is_visible     !== undefined ? is_visible     : null,
+        tag ? categoryForTag(tag) : null,   // division follows the tag
         req.params.id,
       ]
     );

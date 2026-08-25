@@ -12,76 +12,37 @@ let editingUserId      = null;
 let currentProposalId  = null;
 let currentInvoiceId   = null;
 let invoiceSourceProposalId = null;
+let currentLedJobId    = null;
+let currentLedScreenId = null;
+let invoiceSourceLedJobId = null; // job to link back once its invoice is saved
+let ledScreensCache    = [];
+let ledRates           = null;
 let bankingDefaults    = null; // cached default banking details (app_settings)
 let lineItemCounter    = 0;
 let portfolioImageFile = null; // pending image file for upload
 
-const SERVICE_TEMPLATES = {
-  // ── Website packages ──────────────────────────────
-  'Starter Website': [
-    { desc: 'Website Design & Wireframing (up to 5 pages)', qty: 1, price: 1400 },
-    { desc: 'Responsive Frontend Development',              qty: 1, price: 1200 },
-    { desc: 'Contact Form Integration',                     qty: 1, price:  200 },
-    { desc: 'Basic SEO Setup',                              qty: 1, price:  150 },
-    { desc: 'Social Media Links & Icons',                   qty: 1, price:   50 },
-  ],
-  'Professional Website': [
-    { desc: 'UI/UX Design & Wireframing (up to 8 pages)',  qty: 1, price: 2200 },
-    { desc: 'Responsive Frontend Development',              qty: 1, price: 2000 },
-    { desc: 'Blog / News System',                           qty: 1, price:  700 },
-    { desc: 'Image Gallery',                                qty: 1, price:  400 },
-    { desc: 'WhatsApp Chat & Social Integration',           qty: 1, price:  400 },
-    { desc: 'Advanced SEO Setup & Sitemap',                 qty: 1, price:  500 },
-    { desc: 'Testing & Launch',                             qty: 1, price:  300 },
-  ],
-  // ── Web Application ───────────────────────────────
-  'Web Application': [
-    { desc: 'System Architecture & Database Design',        qty: 1, price: 2000 },
-    { desc: 'Backend API Development',                      qty: 1, price: 3000 },
-    { desc: 'User Authentication & Role Management',        qty: 1, price: 1500 },
-    { desc: 'Frontend Dashboard / Client Portal',           qty: 1, price: 2000 },
-    { desc: 'CRM / Booking / Inventory Module',             qty: 1, price: 1500 },
-    { desc: 'Testing, Security Audit & Deployment',         qty: 1, price:  999 },
-  ],
-  // ── E-Commerce ────────────────────────────────────
-  'E-Commerce Store': [
-    { desc: 'Store Design & Branding',                      qty: 1, price: 2500 },
-    { desc: 'Product Catalogue & Management System',        qty: 1, price: 2000 },
-    { desc: 'PayFast / Yoco Payment Gateway Integration',   qty: 1, price: 2500 },
-    { desc: 'Shopping Cart & Checkout Flow',                qty: 1, price: 2000 },
-    { desc: 'Order Management & Email Notifications',       qty: 1, price: 2000 },
-    { desc: 'Customer Accounts & Wishlist',                 qty: 1, price: 1500 },
-    { desc: 'Testing & Launch',                             qty: 1, price:  999 },
-    { desc: 'Stock-level Alerts',                           qty: 1, price:  500 },
-  ],
-  // ── PC / Hardware ─────────────────────────────────
-  'Hardware Repair': [
-    { desc: 'Diagnostic Assessment',                        qty: 1, price:  350 },
-    { desc: 'Parts & Labour',                               qty: 1, price:  800 },
-    { desc: 'Data Backup & Recovery',                       qty: 1, price:  500 },
-    { desc: 'OS Reinstall / Software Setup',                qty: 1, price:  300 },
-    { desc: 'Quality Check & Testing',                      qty: 1, price:  200 },
-  ],
-  // ── IT Support ────────────────────────────────────
-  'IT Support': [
-    { desc: 'On-site or Remote Assessment (per hour)',      qty: 2, price:  450 },
-    { desc: 'Software Configuration & Updates',             qty: 1, price:  600 },
-    { desc: 'Network Setup & Security',                     qty: 1, price:  800 },
-    { desc: 'Documentation & User Training',                qty: 1, price:  500 },
-  ],
-  // ── Common add-ons (quick pick) ───────────────────
-  'Add-ons Only': [
-    { desc: 'Domain Registration (1 year)',                 qty: 1, price:  299 },
-    { desc: 'Hosting Setup',                                qty: 1, price:  499 },
-    { desc: 'Professional Email (1 yr, 10 accounts)',       qty: 1, price: 1200 },
-    { desc: 'Logo & Brand Design',                          qty: 1, price: 1499 },
-    { desc: 'SEO Kickstart Package (3 months)',             qty: 1, price: 2499 },
-    { desc: 'Google My Business Setup',                     qty: 1, price:  499 },
-    { desc: 'WhatsApp Chat Widget',                         qty: 1, price:  699 },
-    { desc: 'Payment Gateway Integration',                  qty: 1, price: 1499 },
-    { desc: 'Monthly Maintenance Plan (per month)',         qty: 1, price:  499 },
-  ],
+// Service catalogue — loaded from /api/services (service_catalog table).
+// Prices and line-item templates live in the database so the public quote
+// form, this admin panel and the PDF builders all read one source.
+let serviceCatalog = null;
+
+const CATEGORY_LABELS = {
+  web: 'Web & Digital',
+  led: 'LED Screens',
+  it:  'IT & Hardware',
 };
+
+async function loadServiceCatalog(force = false) {
+  if (serviceCatalog && !force) return serviceCatalog;
+  try {
+    const res  = await apiFetch('/services');
+    const data = await res.json();
+    serviceCatalog = data.services || [];
+  } catch {
+    serviceCatalog = [];
+  }
+  return serviceCatalog;
+}
 
 // ── Boot ─────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
@@ -115,6 +76,7 @@ function bootApp(user) {
   if (window.innerWidth >= 900) {
     document.getElementById('adminApp').classList.add('sidebar-open');
   }
+  loadServiceCatalog();   // powers the builder template pills
   loadDashboard();
 }
 
@@ -219,6 +181,8 @@ function showPage(name) {
     case 'users':     loadUsers();      break;
     case 'proposals':   loadProposals();   break;
     case 'invoices':    loadInvoices();    break;
+    case 'ledjobs':     loadLedJobs();     break;
+    case 'ledscreens':  loadLedScreens();  break;
     case 'servicedesk': loadServiceDesk(); break;
   }
   // Auto-close sidebar on mobile after navigation
@@ -1149,6 +1113,8 @@ async function openProposalModal(id = null) {
       document.getElementById('prm-ccompany').value = p.client_company || '';
       document.getElementById('prm-valid').value    = p.valid_until ? p.valid_until.split('T')[0] : '';
       document.getElementById('prm-status').value   = p.status;
+      document.getElementById('prm-category').value = p.category || 'web';
+      renderTemplatePills('prm');
       document.getElementById('prm-discount').value = parseFloat(p.discount) || 0;
       document.getElementById('prm-tax').value      = parseFloat(p.tax_rate) || 15;
       document.getElementById('prm-notes').value    = p.notes || '';
@@ -1174,6 +1140,8 @@ async function openProposalModal(id = null) {
     document.getElementById('prm-ccompany').value = '';
     document.getElementById('prm-valid').value    = '';
     document.getElementById('prm-status').value   = 'draft';
+    document.getElementById('prm-category').value = 'web';
+    renderTemplatePills('prm');
     document.getElementById('prm-discount').value = '0';
     document.getElementById('prm-tax').value      = '15';
     document.getElementById('prm-notes').value    = '';
@@ -1220,13 +1188,21 @@ function fillClientFromLead() {
       document.getElementById('prm-title').value = q.package_tier || q.service || '';
     }
 
-    // Auto-apply matching template from the client's package selection
-    const pkg = q.package_tier || q.service || '';
-    const templateKey = Object.keys(SERVICE_TEMPLATES).find(k =>
-      pkg.toLowerCase().includes(k.toLowerCase().split(' ')[0])
+    // Inherit the lead's division, then auto-apply its matching template
+    if (q.category) {
+      document.getElementById('prm-category').value = q.category;
+      renderTemplatePills('prm');
+    }
+
+    const pkg   = q.package_tier || q.service || '';
+    const match = (serviceCatalog || []).find(s =>
+      s.kind === 'package' && s.template_items?.length &&
+      (s.key === q.package_tier || pkg.toLowerCase().includes(s.name.toLowerCase().split(' ')[0]))
     );
-    if (templateKey && !document.querySelector('#prm-items tr')) {
-      applyTemplate(templateKey);
+    if (match && !document.querySelector('#prm-items tr')) {
+      document.getElementById('prm-category').value = match.category;
+      renderTemplatePills('prm');
+      applyTemplate(match.key);
     }
 
     // Pre-load add-ons from the lead as extra line items
@@ -1289,9 +1265,26 @@ function recalcTotals(prefix = 'prm') {
   if (g) g.textContent = `R ${total.toFixed(2)}`;
 }
 
-function applyTemplate(name, prefix = 'prm') {
-  const items = SERVICE_TEMPLATES[name];
-  if (!items) return;
+// Quick-template pills are rebuilt whenever the division changes, so a
+// LED invoice only ever offers LED templates.
+function renderTemplatePills(prefix) {
+  const wrap = document.getElementById(`${prefix}-templates`);
+  if (!wrap) return;
+  const category = document.getElementById(`${prefix}-category`)?.value || 'web';
+  const pills = (serviceCatalog || []).filter(s =>
+    s.category === category && s.kind === 'package' &&
+    Array.isArray(s.template_items) && s.template_items.length
+  );
+  wrap.innerHTML = pills.length
+    ? pills.map(p =>
+        `<button type="button" class="template-pill" onclick="applyTemplate('${esc(p.key)}','${prefix}')">${esc(p.name)}</button>`
+      ).join('')
+    : '<span class="td-muted" style="font-size:.8rem">No templates for this division yet.</span>';
+}
+
+function applyTemplate(key, prefix = 'prm') {
+  const items = (serviceCatalog || []).find(s => s.key === key)?.template_items;
+  if (!items?.length) return;
   document.getElementById(`${prefix}-items`).innerHTML = '';
   items.forEach(i => addLineItem(i.desc, i.qty, i.price, prefix));
   recalcTotals(prefix);
@@ -1395,6 +1388,7 @@ async function saveProposal(e) {
     lead_id:        document.getElementById('prm-lead').value     || null,
     valid_until:    document.getElementById('prm-valid').value    || null,
     status:         document.getElementById('prm-status').value,
+    category:       document.getElementById('prm-category').value,
     items,
     notes:    document.getElementById('prm-notes').value    || null,
     banking_details: getBankingForm('prm'),
@@ -1577,6 +1571,7 @@ function setDueDateState(dateValue) {
 async function openInvoiceModal(id = null, fromProposalId = null) {
   currentInvoiceId        = id;
   invoiceSourceProposalId = null;
+  invoiceSourceLedJobId   = null;
   document.getElementById('inv-items').innerHTML = '';
   document.getElementById('inv-feedback').classList.add('hidden');
   document.getElementById('inv-source').value = '';
@@ -1595,6 +1590,8 @@ async function openInvoiceModal(id = null, fromProposalId = null) {
       document.getElementById('inv-ccompany').value = v.client_company || '';
       setDueDateState(v.due_date ? v.due_date.split('T')[0] : '');
       document.getElementById('inv-status').value   = v.status;
+      document.getElementById('inv-category').value = v.category || 'web';
+      renderTemplatePills('inv');
       document.getElementById('inv-discount').value = parseFloat(v.discount) || 0;
       document.getElementById('inv-tax').value      = parseFloat(v.tax_rate) || 0;
       document.getElementById('inv-notes').value    = v.notes || '';
@@ -1626,6 +1623,8 @@ async function openInvoiceModal(id = null, fromProposalId = null) {
       document.getElementById('inv-no-due').checked = false;
       toggleDueDate();
       document.getElementById('inv-status').value   = 'draft';
+      document.getElementById('inv-category').value = p.category || 'web';
+      renderTemplatePills('inv');
       document.getElementById('inv-discount').value = parseFloat(p.discount) || 0;
       document.getElementById('inv-tax').value      = parseFloat(p.tax_rate) || 0;
       document.getElementById('inv-notes').value    = p.notes || '';
@@ -1663,6 +1662,8 @@ async function openInvoiceModal(id = null, fromProposalId = null) {
     document.getElementById('inv-no-due').checked = false;
     toggleDueDate();
     document.getElementById('inv-status').value   = 'draft';
+    document.getElementById('inv-category').value = 'web';
+    renderTemplatePills('inv');
     document.getElementById('inv-discount').value = '0';
     document.getElementById('inv-tax').value      = '15';
     document.getElementById('inv-notes').value    = '';
@@ -1718,6 +1719,7 @@ async function saveInvoice(e) {
     proposal_id:    invoiceSourceProposalId || null,
     due_date:       document.getElementById('inv-due').value || null,
     status:         document.getElementById('inv-status').value,
+    category:       document.getElementById('inv-category').value,
     items,
     notes:           document.getElementById('inv-notes').value || null,
     banking_details: getBankingForm('inv'),
@@ -1733,6 +1735,17 @@ async function saveInvoice(e) {
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.errors?.[0]?.msg || err.error || 'Save failed');
+    }
+
+    const saved = await res.json();
+
+    // If this invoice came from an LED job, link it back and mark the job invoiced.
+    if (invoiceSourceLedJobId && saved.id) {
+      await apiFetch(`/led/jobs/${invoiceSourceLedJobId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ invoice_id: saved.id, status: 'invoiced' }),
+      }).catch(() => {});
+      invoiceSourceLedJobId = null;
     }
 
     fb.className = 'success-msg';
@@ -1812,6 +1825,630 @@ async function emailInvoicePDF(id, e) {
     alert('Failed to send email. Please check your email configuration.');
     if (btn) { btn.innerHTML = originalHTML; btn.disabled = false; }
   }
+}
+
+/* ══════════════════════════════════════════════════════
+   LED DIVISION — jobs, screen register, rate card
+   ══════════════════════════════════════════════════════ */
+
+const LED_TYPE_LABELS = {
+  installation: 'Installation',
+  callout:      'Callout',
+  repair:       'Module Repair',
+  maintenance:  'Maintenance',
+};
+
+const LED_STATUS_LABELS = {
+  logged:         'Logged',
+  scheduled:      'Scheduled',
+  evaluating:     'Evaluating',
+  reported:       'Reported Back',
+  awaiting_parts: 'Awaiting Parts',
+  in_progress:    'In Progress',
+  dispatched:     'Dispatched',
+  completed:      'Completed',
+  invoiced:       'Invoiced',
+  cancelled:      'Cancelled',
+};
+
+function ledStatusLabel(s) { return LED_STATUS_LABELS[s] || s; }
+function ledTypeLabel(t)   { return LED_TYPE_LABELS[t] || t; }
+
+function formatDateTime(str) {
+  if (!str) return '–';
+  return new Date(str).toLocaleString('en-ZA', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+// ── Jobs list ─────────────────────────────────────────
+async function loadLedJobs() {
+  const status = document.getElementById('ledStatusFilter')?.value || '';
+  const type   = document.getElementById('ledTypeFilter')?.value   || '';
+  const el     = document.getElementById('ledJobsTable');
+  el.innerHTML = '<div class="empty-state">Loading...</div>';
+
+  refreshLedStats();
+
+  const qs = [];
+  if (status) qs.push(`status=${status}`);
+  if (type)   qs.push(`job_type=${type}`);
+  qs.push('limit=100');
+
+  try {
+    const res  = await apiFetch(`/led/jobs?${qs.join('&')}`);
+    const data = await res.json();
+
+    if (!data.jobs?.length) {
+      el.innerHTML = emptyState('No LED jobs yet. Log your first callout or repair!');
+      return;
+    }
+
+    el.innerHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Job #</th>
+            <th>Type</th>
+            <th>Client</th>
+            <th>Screen / Site</th>
+            <th>Status</th>
+            <th>Scheduled</th>
+            <th>Logged</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.jobs.map(j => `
+            <tr onclick="openLedJobModal(${j.id})">
+              <td>
+                <code style="color:var(--green);font-size:.78rem">${esc(j.job_number)}</code>
+                ${j.priority !== 'standard'
+                  ? `<div class="td-muted" style="color:#ff8080;font-weight:700;text-transform:uppercase;font-size:.66rem">${esc(j.priority)}</div>`
+                  : ''}
+              </td>
+              <td>${esc(ledTypeLabel(j.job_type))}</td>
+              <td>
+                <div class="td-name">${esc(j.company || j.contact_name)}</div>
+                <div class="td-muted">${esc(j.contact_phone || j.contact_email || '')}</div>
+              </td>
+              <td>
+                <div>${esc(j.screen_label || '–')}</div>
+                <div class="td-muted">${esc(j.screen_site || j.site_address || '')}</div>
+              </td>
+              <td><span class="badge badge-${esc(j.status)}">${esc(ledStatusLabel(j.status))}</span></td>
+              <td class="td-date">${j.scheduled_for ? formatDateTime(j.scheduled_for) : '–'}</td>
+              <td class="td-date">${formatDate(j.created_at)}</td>
+              <td class="td-actions" onclick="event.stopPropagation()">
+                ${j.invoice_id
+                  ? `<span class="td-muted" style="font-size:.72rem">${esc(j.invoice_number || 'Invoiced')}</span>`
+                  : `<button class="btn-outline success btn-sm" title="Create invoice from this job" onclick="invoiceLedJob(${j.id})">Invoice</button>`}
+                <button class="btn-outline danger btn-sm" title="Delete job" onclick="deleteLedJob(${j.id},event)">✕</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="padding:.75rem 1rem;font-size:.8rem;color:var(--muted)">${data.total} total jobs</div>`;
+  } catch {
+    el.innerHTML = errorState('Failed to load LED jobs');
+  }
+}
+
+async function refreshLedStats() {
+  try {
+    const res  = await apiFetch('/led/jobs/stats');
+    const data = await res.json();
+    const set  = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v ?? '–'; };
+    set('led-s-logged',    data.logged);
+    set('led-s-scheduled', data.scheduled);
+    set('led-s-active',    data.active);
+    set('led-s-awaiting',  data.awaiting_invoice);
+
+    const open  = parseInt(data.logged || 0) + parseInt(data.scheduled || 0) + parseInt(data.active || 0);
+    const badge = document.getElementById('ledJobsBadge');
+    if (badge) {
+      badge.textContent   = open > 0 ? open : '';
+      badge.style.display = open > 0 ? '' : 'none';
+    }
+  } catch { /* stats are decorative — never block the table */ }
+}
+
+// ── Job modal ─────────────────────────────────────────
+async function loadLedScreenOptions(selectedId = null) {
+  const select = document.getElementById('lj-screen');
+  select.innerHTML = '<option value="">— Not linked to a registered screen —</option>';
+  try {
+    const res  = await apiFetch('/led/screens');
+    const data = await res.json();
+    ledScreensCache = data.screens || [];
+    ledScreensCache.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value       = s.id;
+      opt.textContent = `${s.client_name} — ${s.screen_label}${s.site_name ? ` (${s.site_name})` : ''}`;
+      if (selectedId && s.id === selectedId) opt.selected = true;
+      select.appendChild(opt);
+    });
+  } catch { /* screen linking is optional */ }
+}
+
+function fillSiteFromScreen() {
+  const id = parseInt(document.getElementById('lj-screen').value, 10);
+  if (!id) return;
+  const s = ledScreensCache.find(x => x.id === id);
+  if (!s) return;
+  if (!document.getElementById('lj-address').value && s.site_address) {
+    document.getElementById('lj-address').value = s.site_address;
+  }
+  if (!document.getElementById('lj-company').value && s.client_name) {
+    document.getElementById('lj-company').value = s.client_name;
+  }
+}
+
+// Module counts only make sense for repairs; travel only for on-site work.
+function onLedTypeChange() {
+  const type = document.getElementById('lj-type').value;
+  document.getElementById('lj-modules-block').style.display = type === 'repair' ? '' : 'none';
+  document.getElementById('lj-travel-block').style.display  = type === 'repair' ? 'none' : '';
+}
+
+async function openLedJobModal(id = null, presetScreenId = null) {
+  currentLedJobId = id;
+  const fb = document.getElementById('lj-feedback');
+  fb.classList.add('hidden');
+  document.getElementById('lj-billing-link').classList.add('hidden');
+
+  const set = (elId, val) => { document.getElementById(elId).value = val ?? ''; };
+
+  if (id) {
+    document.getElementById('lj-modal-title').textContent = 'LED Job';
+    try {
+      const res = await apiFetch(`/led/jobs/${id}`);
+      const j   = await res.json();
+
+      document.getElementById('lj-job-number').textContent =
+        `${j.job_number} · logged ${formatDate(j.created_at)}`;
+
+      set('lj-type', j.job_type);
+      set('lj-priority', j.priority);
+      set('lj-status', j.status);
+      set('lj-cname', j.contact_name);
+      set('lj-cphone', j.contact_phone);
+      set('lj-cemail', j.contact_email);
+      set('lj-company', j.company);
+      set('lj-address', j.site_address);
+      set('lj-sitenotes', j.site_notes);
+      set('lj-tech', j.technician);
+      set('lj-fault', j.fault_description);
+      set('lj-eval', j.evaluation_notes);
+      set('lj-work', j.work_performed);
+      set('lj-mod-in', j.modules_in);
+      set('lj-mod-rep', j.modules_repaired);
+      set('lj-mod-scrap', j.modules_scrapped);
+      set('lj-hours', j.labour_hours);
+      set('lj-hours2', j.labour_hours);
+      set('lj-km', j.travel_km);
+      set('lj-notes', j.admin_notes);
+      // datetime-local wants YYYY-MM-DDTHH:MM
+      set('lj-scheduled', j.scheduled_for ? j.scheduled_for.slice(0, 16) : '');
+      document.getElementById('lj-inarea').checked = j.within_service_area !== false;
+
+      await loadLedScreenOptions(j.screen_id);
+
+      if (j.invoice_number || j.quote_number) {
+        const link = document.getElementById('lj-billing-link');
+        link.innerHTML = `Billing: ${j.quote_number ? `Quote <code>${esc(j.quote_number)}</code> ` : ''}`
+          + `${j.invoice_number ? `Invoice <code style="color:var(--green)">${esc(j.invoice_number)}</code>` : ''}`;
+        link.classList.remove('hidden');
+      }
+
+      const invBtn = document.getElementById('lj-invoice-btn');
+      invBtn.style.display = j.invoice_id ? 'none' : 'inline-flex';
+    } catch {
+      fb.className = 'error-msg';
+      fb.textContent = 'Failed to load job.';
+      fb.classList.remove('hidden');
+    }
+  } else {
+    document.getElementById('lj-modal-title').textContent = 'Log LED Job';
+    document.getElementById('lj-job-number').textContent  = 'A job number is assigned on save.';
+    ['lj-cname','lj-cphone','lj-cemail','lj-company','lj-address','lj-sitenotes',
+     'lj-tech','lj-fault','lj-eval','lj-work','lj-mod-in','lj-mod-rep','lj-mod-scrap',
+     'lj-hours','lj-hours2','lj-km','lj-notes','lj-scheduled'].forEach(f => set(f, ''));
+    set('lj-type', 'callout');
+    set('lj-priority', 'standard');
+    set('lj-status', 'logged');
+    document.getElementById('lj-inarea').checked = true;
+    document.getElementById('lj-invoice-btn').style.display = 'none';
+    await loadLedScreenOptions(presetScreenId);
+    if (presetScreenId) fillSiteFromScreen();
+  }
+
+  onLedTypeChange();
+  document.getElementById('ledJobModal').classList.add('open');
+}
+
+async function saveLedJob(e) {
+  e.preventDefault();
+  const btn = document.querySelector('#ledJobModal .save-btn');
+  const fb  = document.getElementById('lj-feedback');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  fb.classList.add('hidden');
+
+  const val    = id => document.getElementById(id).value.trim();
+  const numOrNull = id => {
+    const v = document.getElementById(id).value;
+    return v === '' ? null : Number(v);
+  };
+  const type = val('lj-type');
+
+  const payload = {
+    job_type:  type,
+    priority:  val('lj-priority'),
+    status:    val('lj-status'),
+    contact_name:  val('lj-cname'),
+    contact_phone: val('lj-cphone') || null,
+    contact_email: val('lj-cemail') || null,
+    company:       val('lj-company') || null,
+    screen_id:     document.getElementById('lj-screen').value || null,
+    site_address:  val('lj-address') || null,
+    site_notes:    val('lj-sitenotes') || null,
+    within_service_area: document.getElementById('lj-inarea').checked,
+    scheduled_for: document.getElementById('lj-scheduled').value || null,
+    technician:    val('lj-tech') || null,
+    fault_description: val('lj-fault') || null,
+    evaluation_notes:  val('lj-eval') || null,
+    work_performed:    val('lj-work') || null,
+    admin_notes:       val('lj-notes') || null,
+    // Repairs track modules; on-site jobs track travel. Only send what applies.
+    modules_in:       type === 'repair' ? numOrNull('lj-mod-in')    : null,
+    modules_repaired: type === 'repair' ? numOrNull('lj-mod-rep')   : null,
+    modules_scrapped: type === 'repair' ? numOrNull('lj-mod-scrap') : null,
+    labour_hours:     type === 'repair' ? numOrNull('lj-hours')     : numOrNull('lj-hours2'),
+    travel_km:        type === 'repair' ? null : numOrNull('lj-km'),
+  };
+
+  try {
+    const res = currentLedJobId
+      ? await apiFetch(`/led/jobs/${currentLedJobId}`, { method: 'PATCH', body: JSON.stringify(payload) })
+      : await apiFetch('/led/jobs',                     { method: 'POST',  body: JSON.stringify(payload) });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.errors?.[0]?.msg || err.error || 'Save failed');
+    }
+
+    const saved = await res.json();
+    fb.className = 'success-msg';
+    fb.textContent = currentLedJobId ? 'Job updated!' : `Job created — ${saved.job_number}`;
+    fb.classList.remove('hidden');
+    loadLedJobs();
+    setTimeout(() => document.getElementById('ledJobModal').classList.remove('open'), 800);
+  } catch (err) {
+    fb.className = 'error-msg';
+    fb.textContent = err.message || 'Save failed.';
+    fb.classList.remove('hidden');
+  } finally {
+    btn.textContent = 'Save Job'; btn.disabled = false;
+  }
+}
+
+async function deleteLedJob(id, e) {
+  e.stopPropagation();
+  if (!confirm('Delete this LED job? This cannot be undone.')) return;
+  await apiFetch(`/led/jobs/${id}`, { method: 'DELETE' });
+  loadLedJobs();
+}
+
+// ── Job → Invoice ─────────────────────────────────────
+// Builds line items from the rate card and hands them to the existing
+// Invoice Builder, rather than duplicating invoice logic on the server.
+async function invoiceLedJob(jobId) {
+  if (!jobId) return;
+  try {
+    const [jobRes, rates] = await Promise.all([apiFetch(`/led/jobs/${jobId}`), loadLedRates()]);
+    const j = await jobRes.json();
+
+    const items = [];
+    if (j.job_type === 'repair') {
+      const qty = parseInt(j.modules_repaired, 10) || parseInt(j.modules_in, 10) || 1;
+      items.push({
+        description: 'LED Module Repair (per module)',
+        quantity: qty,
+        unit_price: rates.module_repair_price ?? 400,
+      });
+    } else {
+      items.push({
+        description: `LED Callout — ${rates.service_area || 'Greater Cape Town'}`,
+        quantity: 1,
+        unit_price: rates.callout_fee ?? 2000,
+      });
+    }
+
+    const hours = parseFloat(j.labour_hours) || 0;
+    if (hours > 0 && rates.hourly_rate) {
+      items.push({ description: 'On-Site Labour (per hour)', quantity: hours, unit_price: rates.hourly_rate });
+    }
+
+    const km = parseFloat(j.travel_km) || 0;
+    if (km > 0 && rates.travel_per_km && j.within_service_area === false) {
+      items.push({ description: 'Travel Beyond Service Area (per km)', quantity: km, unit_price: rates.travel_per_km });
+    }
+
+    document.getElementById('ledJobModal').classList.remove('open');
+    showPage('invoices');
+    await openInvoiceModal();
+
+    // Set after opening — openInvoiceModal clears this for normal invoices
+    invoiceSourceLedJobId = j.id;
+
+    document.getElementById('inv-title').value    =
+      `${ledTypeLabel(j.job_type)} — ${j.screen_label || j.company || j.contact_name} (${j.job_number})`;
+    document.getElementById('inv-cname').value    = j.company || j.contact_name || '';
+    document.getElementById('inv-cemail').value   = j.contact_email || '';
+    document.getElementById('inv-ccompany').value = j.company || '';
+    document.getElementById('inv-category').value = 'led';
+    document.getElementById('inv-source').value   = j.job_number;
+    renderTemplatePills('inv');
+
+    document.getElementById('inv-items').innerHTML = '';
+    items.forEach(i => addLineItem(i.description, i.quantity, i.unit_price, 'inv'));
+    recalcTotals('inv');
+  } catch {
+    alert('Could not build an invoice from this job.');
+  }
+}
+
+// ── Rate card ─────────────────────────────────────────
+async function loadLedRates(force = false) {
+  if (ledRates && !force) return ledRates;
+  try {
+    const res = await apiFetch('/led/rates');
+    ledRates = res.ok ? await res.json() : {};
+  } catch { ledRates = {}; }
+  return ledRates;
+}
+
+async function openLedRatesModal() {
+  const r = await loadLedRates(true);
+  document.getElementById('lr-callout').value = r.callout_fee ?? '';
+  document.getElementById('lr-module').value  = r.module_repair_price ?? '';
+  document.getElementById('lr-hourly').value  = r.hourly_rate ?? '';
+  document.getElementById('lr-travel').value  = r.travel_per_km ?? '';
+  document.getElementById('lr-area').value    = r.service_area ?? '';
+  document.getElementById('lr-radius').value  = r.service_radius_km ?? '';
+  document.getElementById('lr-feedback').classList.add('hidden');
+  document.getElementById('ledRatesModal').classList.add('open');
+}
+
+async function saveLedRates(e) {
+  e.preventDefault();
+  const btn = document.querySelector('#ledRatesModal .save-btn');
+  const fb  = document.getElementById('lr-feedback');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+
+  const num = id => {
+    const v = document.getElementById(id).value;
+    return v === '' ? null : Number(v);
+  };
+
+  try {
+    const res = await apiFetch('/led/rates', {
+      method: 'PUT',
+      body: JSON.stringify({
+        callout_fee:         num('lr-callout'),
+        module_repair_price: num('lr-module'),
+        hourly_rate:         num('lr-hourly'),
+        travel_per_km:       num('lr-travel'),
+        service_radius_km:   num('lr-radius'),
+        service_area:        document.getElementById('lr-area').value.trim(),
+      }),
+    });
+    if (!res.ok) throw new Error();
+    ledRates = await res.json();
+    fb.className = 'success-msg';
+    fb.textContent = 'Rate card saved.';
+    fb.classList.remove('hidden');
+    setTimeout(() => document.getElementById('ledRatesModal').classList.remove('open'), 700);
+  } catch {
+    fb.className = 'error-msg';
+    fb.textContent = 'Could not save rates.';
+    fb.classList.remove('hidden');
+  } finally {
+    btn.textContent = 'Save Rates'; btn.disabled = false;
+  }
+}
+
+// ── Screen register ───────────────────────────────────
+async function loadLedScreens() {
+  const el = document.getElementById('ledScreensTable');
+  el.innerHTML = '<div class="empty-state">Loading...</div>';
+
+  try {
+    const res  = await apiFetch('/led/screens');
+    const data = await res.json();
+    ledScreensCache = data.screens || [];
+
+    if (!ledScreensCache.length) {
+      el.innerHTML = emptyState('No screens registered yet. Add a client screen to track its service history.');
+      return;
+    }
+
+    el.innerHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Client</th>
+            <th>Screen</th>
+            <th>Spec</th>
+            <th>Environment</th>
+            <th>Installed</th>
+            <th>Warranty</th>
+            <th>Jobs</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ledScreensCache.map(s => {
+            const size = (s.width_m && s.height_m) ? `${s.width_m}m × ${s.height_m}m` : '';
+            const spec = [s.pixel_pitch ? `P${s.pixel_pitch}` : '', size,
+                          s.module_count ? `${s.module_count} modules` : '']
+                         .filter(Boolean).join(' · ');
+            const expired = s.warranty_until && new Date(s.warranty_until) < new Date();
+            return `
+            <tr onclick="openLedScreenModal(${s.id})" ${s.is_active ? '' : 'style="opacity:.5"'}>
+              <td><div class="td-name">${esc(s.client_name)}</div><div class="td-muted">${esc(s.site_name || '')}</div></td>
+              <td>${esc(s.screen_label)}</td>
+              <td class="td-muted">${esc(spec || '–')}</td>
+              <td>${esc((s.environment || '').replace('_', '-'))}</td>
+              <td class="td-date">${s.installed_on ? formatDate(s.installed_on) : '–'}</td>
+              <td class="td-date" ${expired ? 'style="color:#ff8080"' : ''}>${s.warranty_until ? formatDate(s.warranty_until) : '–'}</td>
+              <td>${s.job_count || 0}</td>
+              <td class="td-actions" onclick="event.stopPropagation()">
+                <button class="btn-outline btn-sm" title="Log a job for this screen" onclick="logJobForScreen(${s.id})">Log Job</button>
+                <button class="btn-outline danger btn-sm" title="Delete screen" onclick="deleteLedScreen(${s.id},event)">✕</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      <div style="padding:.75rem 1rem;font-size:.8rem;color:var(--muted)">${data.total} registered screens</div>`;
+  } catch {
+    el.innerHTML = errorState('Failed to load screens');
+  }
+}
+
+async function openLedScreenModal(id = null) {
+  currentLedScreenId = id;
+  const fb = document.getElementById('ls-feedback');
+  fb.classList.add('hidden');
+  document.getElementById('ls-history').classList.add('hidden');
+
+  const set = (elId, val) => { document.getElementById(elId).value = val ?? ''; };
+
+  if (id) {
+    document.getElementById('ls-modal-title').textContent = 'Edit Screen';
+    try {
+      const res = await apiFetch(`/led/screens/${id}`);
+      const s   = await res.json();
+
+      set('ls-client', s.client_name);
+      set('ls-label', s.screen_label);
+      set('ls-site', s.site_name);
+      set('ls-env', s.environment || 'indoor');
+      set('ls-address', s.site_address);
+      set('ls-pitch', s.pixel_pitch);
+      set('ls-modules', s.module_count);
+      set('ls-width', s.width_m);
+      set('ls-height', s.height_m);
+      set('ls-cabinet', s.cabinet_type);
+      set('ls-modtype', s.module_type);
+      set('ls-card', s.receiving_card);
+      set('ls-proc', s.processor);
+      set('ls-installed', s.installed_on ? s.installed_on.split('T')[0] : '');
+      set('ls-warranty', s.warranty_until ? s.warranty_until.split('T')[0] : '');
+      set('ls-notes', s.notes);
+      document.getElementById('ls-active').checked = s.is_active !== false;
+
+      const hist = document.getElementById('ls-history');
+      hist.innerHTML = s.history?.length
+        ? `<div style="margin-bottom:.5rem;font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Service History</div>
+           ${s.history.map(h => `
+             <div style="display:flex;gap:.75rem;align-items:center;padding:.45rem 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:.82rem">
+               <code style="color:var(--green)">${esc(h.job_number)}</code>
+               <span>${esc(ledTypeLabel(h.job_type))}</span>
+               <span class="badge badge-${esc(h.status)}">${esc(ledStatusLabel(h.status))}</span>
+               <span class="td-muted" style="margin-left:auto">${formatDate(h.created_at)}</span>
+             </div>`).join('')}`
+        : '<div class="td-muted" style="font-size:.82rem">No jobs logged against this screen yet.</div>';
+      hist.classList.remove('hidden');
+
+      document.getElementById('ls-job-btn').style.display = 'inline-flex';
+    } catch {
+      fb.className = 'error-msg';
+      fb.textContent = 'Failed to load screen.';
+      fb.classList.remove('hidden');
+    }
+  } else {
+    document.getElementById('ls-modal-title').textContent = 'Add Screen';
+    ['ls-client','ls-label','ls-site','ls-address','ls-pitch','ls-modules','ls-width',
+     'ls-height','ls-cabinet','ls-modtype','ls-card','ls-proc','ls-installed',
+     'ls-warranty','ls-notes'].forEach(f => set(f, ''));
+    set('ls-env', 'indoor');
+    document.getElementById('ls-active').checked = true;
+    document.getElementById('ls-job-btn').style.display = 'none';
+  }
+
+  document.getElementById('ledScreenModal').classList.add('open');
+}
+
+async function saveLedScreen(e) {
+  e.preventDefault();
+  const btn = document.querySelector('#ledScreenModal .save-btn');
+  const fb  = document.getElementById('ls-feedback');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  fb.classList.add('hidden');
+
+  const val = id => document.getElementById(id).value.trim();
+  const num = id => {
+    const v = document.getElementById(id).value;
+    return v === '' ? null : Number(v);
+  };
+
+  const payload = {
+    client_name:    val('ls-client'),
+    screen_label:   val('ls-label'),
+    site_name:      val('ls-site') || null,
+    site_address:   val('ls-address') || null,
+    environment:    val('ls-env'),
+    pixel_pitch:    num('ls-pitch'),
+    module_count:   num('ls-modules'),
+    width_m:        num('ls-width'),
+    height_m:       num('ls-height'),
+    cabinet_type:   val('ls-cabinet') || null,
+    module_type:    val('ls-modtype') || null,
+    receiving_card: val('ls-card') || null,
+    processor:      val('ls-proc') || null,
+    installed_on:   document.getElementById('ls-installed').value || null,
+    warranty_until: document.getElementById('ls-warranty').value || null,
+    notes:          val('ls-notes') || null,
+    is_active:      document.getElementById('ls-active').checked,
+  };
+
+  try {
+    const res = currentLedScreenId
+      ? await apiFetch(`/led/screens/${currentLedScreenId}`, { method: 'PATCH', body: JSON.stringify(payload) })
+      : await apiFetch('/led/screens',                        { method: 'POST',  body: JSON.stringify(payload) });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.errors?.[0]?.msg || err.error || 'Save failed');
+    }
+
+    fb.className = 'success-msg';
+    fb.textContent = currentLedScreenId ? 'Screen updated!' : 'Screen registered!';
+    fb.classList.remove('hidden');
+    loadLedScreens();
+    setTimeout(() => document.getElementById('ledScreenModal').classList.remove('open'), 700);
+  } catch (err) {
+    fb.className = 'error-msg';
+    fb.textContent = err.message || 'Save failed.';
+    fb.classList.remove('hidden');
+  } finally {
+    btn.textContent = 'Save Screen'; btn.disabled = false;
+  }
+}
+
+async function deleteLedScreen(id, e) {
+  e.stopPropagation();
+  if (!confirm('Delete this screen?\n\nJobs logged against it are kept, but lose the screen link.')) return;
+  await apiFetch(`/led/screens/${id}`, { method: 'DELETE' });
+  loadLedScreens();
+}
+
+function logJobForScreen(screenId) {
+  document.getElementById('ledScreenModal').classList.remove('open');
+  showPage('ledjobs');
+  openLedJobModal(null, screenId);
 }
 
 // ── Modal helpers ─────────────────────────────────────

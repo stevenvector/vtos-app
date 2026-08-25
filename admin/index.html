@@ -122,6 +122,15 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><path d="M12 11v6M9.5 12.5h3.5a1.25 1.25 0 010 2.5H11a1.25 1.25 0 000 2.5h3.5"/></svg>
           Invoice Builder
         </button>
+        <button class="sb-link" onclick="showPage('ledjobs')" data-page="ledjobs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><rect x="2" y="4" width="20" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/><path d="M6 8h3v3H6zM11 8h3v3h-3z"/></svg>
+          LED Jobs
+          <span class="sb-badge" id="ledJobsBadge"></span>
+        </button>
+        <button class="sb-link" onclick="showPage('ledscreens')" data-page="ledscreens">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><rect x="2" y="3" width="20" height="15" rx="1.5"/><path d="M2 8h20M8 3v15M14 3v15M2 13h20"/></svg>
+          LED Screens
+        </button>
         <button class="sb-link" onclick="showPage('servicedesk')" data-page="servicedesk">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.72A2 2 0 012.18 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 8.15a16 16 0 006.29 6.29l1.52-1.52a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
           Service Desk
@@ -324,6 +333,7 @@
                   <option value="website">Website</option>
                   <option value="webapp">Web App</option>
                   <option value="ecommerce">E-Commerce</option>
+                  <option value="led">LED Screen</option>
                   <option value="other">Other</option>
                 </select>
               </div>
@@ -571,18 +581,19 @@
               </div>
             </div>
 
+            <div class="fg">
+              <label>Division</label>
+              <select id="prm-category" onchange="renderTemplatePills('prm')">
+                <option value="web">Web &amp; Digital</option>
+                <option value="led">LED Screens</option>
+                <option value="it">IT &amp; Hardware</option>
+              </select>
+            </div>
+
             <!-- Service templates -->
             <div style="margin-bottom:.75rem">
               <label style="margin-bottom:.5rem">Quick Templates</label>
-              <div class="template-pills">
-                <button type="button" class="template-pill" onclick="applyTemplate('Starter Website')">Starter Site</button>
-                <button type="button" class="template-pill" onclick="applyTemplate('Professional Website')">Professional</button>
-                <button type="button" class="template-pill" onclick="applyTemplate('Web Application')">Web App</button>
-                <button type="button" class="template-pill" onclick="applyTemplate('E-Commerce Store')">E-Commerce</button>
-                <button type="button" class="template-pill" onclick="applyTemplate('Hardware Repair')">Repair</button>
-                <button type="button" class="template-pill" onclick="applyTemplate('IT Support')">IT Support</button>
-                <button type="button" class="template-pill" onclick="applyTemplate('Add-ons Only')">Add-ons</button>
-              </div>
+              <div class="template-pills" id="prm-templates"></div>
             </div>
 
             <!-- Line items -->
@@ -737,18 +748,19 @@
               </div>
             </div>
 
+            <div class="fg">
+              <label>Division</label>
+              <select id="inv-category" onchange="renderTemplatePills('inv')">
+                <option value="web">Web &amp; Digital</option>
+                <option value="led">LED Screens</option>
+                <option value="it">IT &amp; Hardware</option>
+              </select>
+            </div>
+
             <!-- Service templates -->
             <div style="margin-bottom:.75rem">
               <label style="margin-bottom:.5rem">Quick Templates</label>
-              <div class="template-pills">
-                <button type="button" class="template-pill" onclick="applyTemplate('Starter Website','inv')">Starter Site</button>
-                <button type="button" class="template-pill" onclick="applyTemplate('Professional Website','inv')">Professional</button>
-                <button type="button" class="template-pill" onclick="applyTemplate('Web Application','inv')">Web App</button>
-                <button type="button" class="template-pill" onclick="applyTemplate('E-Commerce Store','inv')">E-Commerce</button>
-                <button type="button" class="template-pill" onclick="applyTemplate('Hardware Repair','inv')">Repair</button>
-                <button type="button" class="template-pill" onclick="applyTemplate('IT Support','inv')">IT Support</button>
-                <button type="button" class="template-pill" onclick="applyTemplate('Add-ons Only','inv')">Add-ons</button>
-              </div>
+              <div class="template-pills" id="inv-templates"></div>
             </div>
 
             <!-- Line items -->
@@ -831,6 +843,282 @@
               <button type="button" class="btn-outline" style="flex:0 0 auto" onclick="document.getElementById('invoiceModal').classList.remove('open')">Cancel</button>
             </div>
 
+          </form>
+        </div>
+      </div>
+
+      <!-- ── Page: LED Jobs ── -->
+      <section id="page-ledjobs" class="page">
+        <div class="page-header">
+          <div><h1>LED Jobs</h1><p>Installations, callouts, module repairs and maintenance</p></div>
+          <div class="header-actions">
+            <select id="ledTypeFilter" onchange="loadLedJobs()">
+              <option value="">All Types</option>
+              <option value="installation">Installation</option>
+              <option value="callout">Callout</option>
+              <option value="repair">Module Repair</option>
+              <option value="maintenance">Maintenance</option>
+            </select>
+            <select id="ledStatusFilter" onchange="loadLedJobs()">
+              <option value="">All Statuses</option>
+              <option value="logged">Logged</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="evaluating">Evaluating</option>
+              <option value="reported">Reported Back</option>
+              <option value="awaiting_parts">Awaiting Parts</option>
+              <option value="in_progress">In Progress</option>
+              <option value="dispatched">Dispatched</option>
+              <option value="completed">Completed</option>
+              <option value="invoiced">Invoiced</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <button class="btn-outline btn-sm" onclick="openLedRatesModal()">Rate Card</button>
+            <button class="btn-g btn-sm" onclick="openLedJobModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Log Job
+            </button>
+          </div>
+        </div>
+        <div class="stats-grid" id="ledStatsGrid">
+          <div class="stat-card green">
+            <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22"><path d="M12 2v20M2 12h20"/></svg></div>
+            <div class="stat-info"><span class="stat-val" id="led-s-logged">–</span><span class="stat-lbl">Newly Logged</span></div>
+          </div>
+          <div class="stat-card blue">
+            <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+            <div class="stat-info"><span class="stat-val" id="led-s-scheduled">–</span><span class="stat-lbl">Scheduled</span></div>
+          </div>
+          <div class="stat-card yellow">
+            <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+            <div class="stat-info"><span class="stat-val" id="led-s-active">–</span><span class="stat-lbl">In the Workshop</span></div>
+          </div>
+          <div class="stat-card purple">
+            <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg></div>
+            <div class="stat-info"><span class="stat-val" id="led-s-awaiting">–</span><span class="stat-lbl">Awaiting Invoice</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div id="ledJobsTable">Loading...</div>
+        </div>
+      </section>
+
+      <!-- ── LED Job Modal ── -->
+      <div class="modal-overlay" id="ledJobModal" onclick="closeModal(event,'ledJobModal')">
+        <div class="modal modal-xl">
+          <button class="modal-x" onclick="document.getElementById('ledJobModal').classList.remove('open')">✕</button>
+          <h3 id="lj-modal-title">Log LED Job</h3>
+          <p id="lj-job-number" class="td-muted" style="margin:-.5rem 0 1rem"></p>
+
+          <form onsubmit="saveLedJob(event)">
+            <div class="form-row-2">
+              <div class="fg">
+                <label>Job Type *</label>
+                <select id="lj-type" onchange="onLedTypeChange()" required>
+                  <option value="callout">Callout / On-Site Service</option>
+                  <option value="repair">Module Repair</option>
+                  <option value="installation">Installation</option>
+                  <option value="maintenance">Maintenance Visit</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>Priority</label>
+                <select id="lj-priority">
+                  <option value="standard">Standard</option>
+                  <option value="urgent">Urgent</option>
+                  <option value="emergency">Emergency</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Contact (phone-in friendly) -->
+            <div style="margin-bottom:.5rem;font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Contact</div>
+            <div class="form-row-2">
+              <div class="fg"><label>Contact Name *</label><input type="text" id="lj-cname" placeholder="Who called?" required /></div>
+              <div class="fg"><label>Phone</label><input type="text" id="lj-cphone" placeholder="+27 …" /></div>
+            </div>
+            <div class="form-row-2">
+              <div class="fg"><label>Email</label><input type="email" id="lj-cemail" placeholder="For updates &amp; invoicing" /></div>
+              <div class="fg"><label>Company</label><input type="text" id="lj-company" placeholder="Company / venue" /></div>
+            </div>
+
+            <!-- Site -->
+            <div style="margin-bottom:.5rem;font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Site &amp; Screen</div>
+            <div class="form-row-2">
+              <div class="fg">
+                <label>Screen (from register)</label>
+                <select id="lj-screen" onchange="fillSiteFromScreen()">
+                  <option value="">— Not linked to a registered screen —</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>Scheduled For</label>
+                <input type="datetime-local" id="lj-scheduled" />
+              </div>
+            </div>
+            <div class="fg"><label>Site Address</label><input type="text" id="lj-address" placeholder="Street, suburb, city" /></div>
+            <div class="form-row-2">
+              <div class="fg"><label>Site Notes</label><input type="text" id="lj-sitenotes" placeholder="Access, working height, power…" /></div>
+              <div class="fg"><label>Technician</label><input type="text" id="lj-tech" placeholder="Assigned to" /></div>
+            </div>
+            <div style="margin:.25rem 0 1rem;display:flex;align-items:center;gap:.5rem">
+              <input type="checkbox" id="lj-inarea" checked style="width:auto;accent-color:var(--green,#39FF14)" />
+              <label for="lj-inarea" style="margin:0;cursor:pointer;text-transform:none;letter-spacing:0">Within service area (Greater Cape Town / 30km radius)</label>
+            </div>
+
+            <!-- Work -->
+            <div style="margin-bottom:.5rem;font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Work</div>
+            <div class="fg">
+              <label>Status</label>
+              <select id="lj-status">
+                <option value="logged">Logged</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="evaluating">Evaluating</option>
+                <option value="reported">Reported Back — awaiting approval</option>
+                <option value="awaiting_parts">Awaiting Parts</option>
+                <option value="in_progress">In Progress / Repairing</option>
+                <option value="dispatched">Dispatched — returned to client</option>
+                <option value="completed">Completed</option>
+                <option value="invoiced">Invoiced</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div class="fg"><label>Fault / Request</label><textarea id="lj-fault" rows="2" placeholder="What did the client report?"></textarea></div>
+            <div class="fg"><label>Evaluation Findings</label><textarea id="lj-eval" rows="2" placeholder="What you found — this is what gets reported back to the client"></textarea></div>
+            <div class="fg"><label>Work Performed</label><textarea id="lj-work" rows="2" placeholder="What was actually done"></textarea></div>
+
+            <!-- Module counts — repairs only -->
+            <div id="lj-modules-block">
+              <div class="form-row-2">
+                <div class="fg"><label>Modules In</label><input type="number" id="lj-mod-in" min="0" step="1" placeholder="0" /></div>
+                <div class="fg"><label>Modules Repaired</label><input type="number" id="lj-mod-rep" min="0" step="1" placeholder="0" /></div>
+              </div>
+              <div class="form-row-2">
+                <div class="fg"><label>Modules Scrapped</label><input type="number" id="lj-mod-scrap" min="0" step="1" placeholder="0" /></div>
+                <div class="fg"><label>Labour Hours</label><input type="number" id="lj-hours" min="0" step="0.25" placeholder="0" /></div>
+              </div>
+            </div>
+            <div id="lj-travel-block" class="form-row-2">
+              <div class="fg"><label>Labour Hours</label><input type="number" id="lj-hours2" min="0" step="0.25" placeholder="0" /></div>
+              <div class="fg"><label>Travel (km)</label><input type="number" id="lj-km" min="0" step="1" placeholder="0" /></div>
+            </div>
+
+            <div class="fg"><label>Admin Notes</label><textarea id="lj-notes" rows="2" placeholder="Internal notes"></textarea></div>
+
+            <div id="lj-billing-link" class="hidden" style="margin-bottom:1rem;font-size:.85rem;color:var(--muted)"></div>
+            <div id="lj-feedback" class="hidden" style="margin-top:1rem"></div>
+            <div style="display:flex;gap:.75rem;margin-top:1.25rem;flex-wrap:wrap">
+              <button type="submit" class="btn-g save-btn" style="flex:1;min-width:140px">Save Job</button>
+              <button type="button" id="lj-invoice-btn" class="btn-outline success" style="display:none" onclick="invoiceLedJob(currentLedJobId)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+                Create Invoice
+              </button>
+              <button type="button" class="btn-outline" style="flex:0 0 auto" onclick="document.getElementById('ledJobModal').classList.remove('open')">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ── LED Rate Card Modal ── -->
+      <div class="modal-overlay" id="ledRatesModal" onclick="closeModal(event,'ledRatesModal')">
+        <div class="modal">
+          <button class="modal-x" onclick="document.getElementById('ledRatesModal').classList.remove('open')">✕</button>
+          <h3>LED Rate Card</h3>
+          <p class="td-muted" style="margin:-.5rem 0 1rem">Used to pre-fill invoices from completed jobs.</p>
+          <form onsubmit="saveLedRates(event)">
+            <div class="form-row-2">
+              <div class="fg"><label>Callout Fee (R)</label><input type="number" id="lr-callout" min="0" step="0.01" /></div>
+              <div class="fg"><label>Module Repair (R each)</label><input type="number" id="lr-module" min="0" step="0.01" /></div>
+            </div>
+            <div class="form-row-2">
+              <div class="fg"><label>Hourly Labour Rate (R)</label><input type="number" id="lr-hourly" min="0" step="0.01" placeholder="Optional" /></div>
+              <div class="fg"><label>Travel Beyond Radius (R/km)</label><input type="number" id="lr-travel" min="0" step="0.01" placeholder="Optional" /></div>
+            </div>
+            <div class="form-row-2">
+              <div class="fg"><label>Service Area</label><input type="text" id="lr-area" /></div>
+              <div class="fg"><label>Service Radius (km)</label><input type="number" id="lr-radius" min="0" step="1" /></div>
+            </div>
+            <div id="lr-feedback" class="hidden" style="margin-top:1rem"></div>
+            <div style="display:flex;gap:.75rem;margin-top:1.25rem">
+              <button type="submit" class="btn-g save-btn" style="flex:1">Save Rates</button>
+              <button type="button" class="btn-outline" onclick="document.getElementById('ledRatesModal').classList.remove('open')">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ── Page: LED Screens ── -->
+      <section id="page-ledscreens" class="page">
+        <div class="page-header">
+          <div><h1>LED Screens</h1><p>Register of installed screens and their service history</p></div>
+          <div class="header-actions">
+            <button class="btn-g btn-sm" onclick="openLedScreenModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Screen
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div id="ledScreensTable">Loading...</div>
+        </div>
+      </section>
+
+      <!-- ── LED Screen Modal ── -->
+      <div class="modal-overlay" id="ledScreenModal" onclick="closeModal(event,'ledScreenModal')">
+        <div class="modal modal-xl">
+          <button class="modal-x" onclick="document.getElementById('ledScreenModal').classList.remove('open')">✕</button>
+          <h3 id="ls-modal-title">Add Screen</h3>
+
+          <form onsubmit="saveLedScreen(event)">
+            <div class="form-row-2">
+              <div class="fg"><label>Client Name *</label><input type="text" id="ls-client" placeholder="Who owns the screen" required /></div>
+              <div class="fg"><label>Screen Label *</label><input type="text" id="ls-label" placeholder="e.g. North Stand Ribbon" required /></div>
+            </div>
+            <div class="form-row-2">
+              <div class="fg"><label>Site Name</label><input type="text" id="ls-site" placeholder="e.g. North Stand" /></div>
+              <div class="fg"><label>Environment</label>
+                <select id="ls-env">
+                  <option value="indoor">Indoor</option>
+                  <option value="outdoor">Outdoor</option>
+                  <option value="semi_outdoor">Semi-Outdoor</option>
+                </select>
+              </div>
+            </div>
+            <div class="fg"><label>Site Address</label><input type="text" id="ls-address" placeholder="Street, suburb, city" /></div>
+
+            <div style="margin:.5rem 0;font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Specification</div>
+            <div class="form-row-2">
+              <div class="fg"><label>Pixel Pitch (mm)</label><input type="number" id="ls-pitch" min="0" step="0.01" placeholder="e.g. 3.91" /></div>
+              <div class="fg"><label>Module Count</label><input type="number" id="ls-modules" min="0" step="1" /></div>
+            </div>
+            <div class="form-row-2">
+              <div class="fg"><label>Width (m)</label><input type="number" id="ls-width" min="0" step="0.01" /></div>
+              <div class="fg"><label>Height (m)</label><input type="number" id="ls-height" min="0" step="0.01" /></div>
+            </div>
+            <div class="form-row-2">
+              <div class="fg"><label>Cabinet Type</label><input type="text" id="ls-cabinet" placeholder="e.g. Absen A10" /></div>
+              <div class="fg"><label>Module Type</label><input type="text" id="ls-modtype" placeholder="e.g. P10 SMD3535" /></div>
+            </div>
+            <div class="form-row-2">
+              <div class="fg"><label>Receiving Card</label><input type="text" id="ls-card" placeholder="e.g. Novastar A8s" /></div>
+              <div class="fg"><label>Processor / Controller</label><input type="text" id="ls-proc" placeholder="e.g. Novastar VX600" /></div>
+            </div>
+            <div class="form-row-2">
+              <div class="fg"><label>Installed On</label><input type="date" id="ls-installed" /></div>
+              <div class="fg"><label>Warranty Until</label><input type="date" id="ls-warranty" /></div>
+            </div>
+            <div class="fg"><label>Notes</label><textarea id="ls-notes" rows="2" placeholder="Spares held, quirks, access notes…"></textarea></div>
+            <div style="margin:.25rem 0 1rem;display:flex;align-items:center;gap:.5rem">
+              <input type="checkbox" id="ls-active" checked style="width:auto;accent-color:var(--green,#39FF14)" />
+              <label for="ls-active" style="margin:0;cursor:pointer;text-transform:none;letter-spacing:0">Screen is active / still in service</label>
+            </div>
+
+            <div id="ls-history" class="hidden" style="margin-bottom:1rem"></div>
+            <div id="ls-feedback" class="hidden" style="margin-top:1rem"></div>
+            <div style="display:flex;gap:.75rem;margin-top:1.25rem;flex-wrap:wrap">
+              <button type="submit" class="btn-g save-btn" style="flex:1;min-width:140px">Save Screen</button>
+              <button type="button" id="ls-job-btn" class="btn-outline" style="display:none" onclick="logJobForScreen(currentLedScreenId)">Log a Job for This Screen</button>
+              <button type="button" class="btn-outline" style="flex:0 0 auto" onclick="document.getElementById('ledScreenModal').classList.remove('open')">Cancel</button>
+            </div>
           </form>
         </div>
       </div>

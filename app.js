@@ -5,13 +5,24 @@
 const API = '/api';
 
 // ── Package-driven quote: pricing data ───────────────
+// Package/add-on definitions. Prices here are fallbacks — on load they are
+// re-synced from /api/services (the service_catalog table) so the database
+// stays the single source of truth for pricing.
 const QUOTE_PACKAGES = {
-  starter:      { name: 'Starter Website',          price: 3000  },
-  professional: { name: 'Professional Website',      price: 6500  },
-  webapp:       { name: 'Web Application / Portal',  price: 9999  },
-  ecommerce:    { name: 'E-Commerce Store',          price: 13999 },
-  repair:       { name: 'PC Repair / Hardware',      price: 350,  note: 'Diagnostic fee — credited to repair cost' },
-  custom:       { name: 'Custom / Enterprise',       price: 0,    note: 'Free consultation — no obligation' },
+  starter:        { name: 'Starter Website',            price: 3000,  category: 'web' },
+  professional:   { name: 'Professional Website',       price: 6500,  category: 'web' },
+  webapp:         { name: 'Web Application / Portal',   price: 9999,  category: 'web' },
+  ecommerce:      { name: 'E-Commerce Store',           price: 13999, category: 'web' },
+  repair:         { name: 'PC Repair / Hardware',       price: 350,   category: 'it',
+                    note: 'Diagnostic fee — credited to repair cost' },
+  'led-install':  { name: 'LED Screen Installation',    price: 0,     category: 'led',
+                    note: 'Quoted after a site survey — no obligation' },
+  'led-callout':  { name: 'LED Callout / On-Site Service', price: 2000, category: 'led',
+                    unit: 'callout', note: 'Callout fee — Greater Cape Town or within 30km' },
+  'led-repair':   { name: 'LED Module Repair',          price: 400,   category: 'led',
+                    unit: 'module', note: 'Per module — evaluated and reported before any repair' },
+  custom:         { name: 'Custom / Enterprise',        price: 0,     category: 'web',
+                    note: 'Free consultation — no obligation' },
 };
 
 const QUOTE_ADDONS = {
@@ -29,6 +40,41 @@ const QUOTE_ADDONS = {
   'custom-addon': { name: 'Custom Add-on (discuss below)',      price: 0    },
 };
 
+// ── Sync prices from the service catalogue ────────────
+// Keeps the public estimate in step with the admin-managed price list so a
+// rate change never needs a redeploy. Falls back to the values above.
+const UNIT_SUFFIX = {
+  callout: ' callout', module: ' per module', hour: ' per hour',
+  month: '/mo', sqm: ' per m²', item: '',
+};
+
+async function syncCatalogPrices() {
+  try {
+    const res = await fetch(`${API}/services`);
+    if (!res.ok) return;
+    const { services } = await res.json();
+
+    services.forEach(s => {
+      const price  = parseFloat(s.base_price) || 0;
+      const target = QUOTE_PACKAGES[s.key] || QUOTE_ADDONS[s.key];
+      if (target) {
+        target.price = price;
+        target.name  = s.name;
+        if (s.note) target.note = s.note;
+      }
+      // Refresh the price chip on the package card, if it exposes one
+      const chip = document.querySelector(`[data-pkg-price="${s.key}"]`);
+      if (chip && price > 0) {
+        chip.textContent = `R${price.toLocaleString()}${UNIT_SUFFIX[s.unit] ?? ''}`;
+      }
+    });
+
+    updateEstimate();
+  } catch { /* offline or API down — the built-in prices still work */ }
+}
+
+window.addEventListener('DOMContentLoaded', syncCatalogPrices);
+
 // ── Live estimate updater ─────────────────────────────
 function updateEstimate() {
   const pkgInput  = document.querySelector('input[name="q-package"]:checked');
@@ -45,7 +91,8 @@ function updateEstimate() {
   const pkg = QUOTE_PACKAGES[pkgInput.value];
 
   if (pkg.price === 0) {
-    valEl.textContent  = 'Free';
+    // LED installations are scoped on site rather than priced off a list.
+    valEl.textContent  = pkg.category === 'led' ? 'On survey' : 'Free';
     noteEl.textContent = pkg.note || 'Scoped together in a consultation';
     return;
   }
@@ -349,6 +396,7 @@ async function submitQuote(e) {
     phone:         document.getElementById('q-phone').value,
     service:       pkg.name,
     package_tier:  pkg.name,
+    category:      pkg.category || 'web',
     addons:        addons.length ? addons : undefined,
     estimate:      estimate || undefined,
     budget:        estimate ? `R${estimate.toLocaleString()}` : 'Free consultation',
@@ -392,8 +440,8 @@ async function loadPortfolioItems() {
     // Remove existing placeholder items
     grid.querySelectorAll('.portfolio-item').forEach(el => el.remove());
 
-    const tagClass = { website: '', webapp: 'webapp-tag', ecommerce: 'ecom-tag', other: '' };
-    const tagLabel = { website: 'Website', webapp: 'Web App', ecommerce: 'E-Commerce', other: 'Project' };
+    const tagClass = { website: '', webapp: 'webapp-tag', ecommerce: 'ecom-tag', led: 'led-tag', other: '' };
+    const tagLabel = { website: 'Website', webapp: 'Web App', ecommerce: 'E-Commerce', led: 'LED Screen', other: 'Project' };
 
     items.forEach((item, i) => {
       const div = document.createElement('div');

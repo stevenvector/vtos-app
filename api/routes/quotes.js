@@ -7,6 +7,9 @@ const { notifyAdminNewQuote, confirmClientQuote } = require('../services/email')
 
 const router = express.Router();
 
+const CATEGORIES     = ['web', 'led', 'it'];
+const QUOTE_STATUSES = ['new', 'contacted', 'in_progress', 'converted', 'closed'];
+
 // Rate-limit ONLY public quote submissions (10/hr/IP). Admin GET/PATCH/DELETE
 // stay uncapped so the dashboard remains usable.
 const submitLimiter = rateLimit({
@@ -30,13 +33,14 @@ router.post('/', submitLimiter, [
   body('package_tier').optional().trim(),
   body('addons').optional().isArray(),
   body('estimate').optional().isInt({ min: 0 }),
+  body('category').optional().isIn(CATEGORIES).withMessage('Invalid service category'),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
   const {
     name, company, email, phone, service, budget, description, wants_consult,
-    package_tier, addons, estimate,
+    package_tier, addons, estimate, category,
   } = req.body;
   const userId = req.user?.id || null;
 
@@ -44,15 +48,16 @@ router.post('/', submitLimiter, [
     const result = await pool.query(
       `INSERT INTO quotes
          (name, company, email, phone, service, budget, description, wants_consult,
-          submitted_by, package_tier, addons, estimate)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-       RETURNING id, name, email, service, package_tier, estimate, status, created_at`,
+          submitted_by, package_tier, addons, estimate, category)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       RETURNING id, name, email, service, package_tier, estimate, status, category, created_at`,
       [
         name, company || null, email, phone || null, service,
         budget || null, description, wants_consult ?? false, userId,
         package_tier || null,
         addons && addons.length ? JSON.stringify(addons) : null,
         estimate || null,
+        category || 'web',
       ]
     );
 
@@ -105,30 +110,29 @@ router.get('/my', requireAuth, async (req, res) => {
 
 // ── GET /api/quotes — admin: all quotes ──────────────
 router.get('/', requireAuth, requireAdmin, [
-  query('status').optional().isIn(['new','contacted','in_progress','converted','closed']),
+  query('status').optional().isIn(QUOTE_STATUSES),
+  query('category').optional().isIn(CATEGORIES),
   query('limit').optional().isInt({ min: 1, max: 100 }),
   query('offset').optional().isInt({ min: 0 }),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { status, limit = 50, offset = 0 } = req.query;
+  const { status, category, limit = 50, offset = 0 } = req.query;
 
   try {
-    let sql    = `SELECT * FROM quotes`;
-    const vals = [];
+    const conds = [];
+    const vals  = [];
+    if (status)   { conds.push(`status = $${vals.length + 1}`);   vals.push(status); }
+    if (category) { conds.push(`category = $${vals.length + 1}`); vals.push(category); }
+    const where = conds.length ? ` WHERE ${conds.join(' AND ')}` : '';
 
-    if (status) {
-      sql += ` WHERE status = $${vals.length + 1}`;
-      vals.push(status);
-    }
-
-    sql += ` ORDER BY created_at DESC LIMIT $${vals.length+1} OFFSET $${vals.length+2}`;
-    vals.push(Number(limit), Number(offset));
+    const sql = `SELECT * FROM quotes${where}`
+      + ` ORDER BY created_at DESC LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}`;
 
     const [rows, count] = await Promise.all([
-      pool.query(sql, vals),
-      pool.query(`SELECT COUNT(*) FROM quotes${status ? ' WHERE status=$1' : ''}`, status ? [status] : []),
+      pool.query(sql, [...vals, Number(limit), Number(offset)]),
+      pool.query(`SELECT COUNT(*) FROM quotes${where}`, vals),
     ]);
 
     res.json({ quotes: rows.rows, total: parseInt(count.rows[0].count) });
@@ -154,7 +158,8 @@ router.get('/:id', requireAuth, requireAdmin, async (req, res) => {
 // it. Fixes the old COALESCE behaviour that ignored explicit null and
 // prevented clearing admin_notes once it was set.
 router.patch('/:id', requireAuth, requireAdmin, [
-  body('status').optional().isIn(['new','contacted','in_progress','converted','closed']),
+  body('status').optional().isIn(QUOTE_STATUSES),
+  body('category').optional().isIn(CATEGORIES),
   body('admin_notes').optional({ nullable: true }).trim(),
 ], async (req, res) => {
   const errors = validationResult(req);
@@ -167,6 +172,10 @@ router.patch('/:id', requireAuth, requireAdmin, [
   if ('status' in req.body) {
     updates.push(`status = $${idx++}`);
     vals.push(req.body.status);
+  }
+  if ('category' in req.body) {
+    updates.push(`category = $${idx++}`);
+    vals.push(req.body.category);
   }
   if ('admin_notes' in req.body) {
     updates.push(`admin_notes = $${idx++}`);

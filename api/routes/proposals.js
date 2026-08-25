@@ -9,6 +9,7 @@ const { cleanBanking }              = require('./invoices');
 const router = express.Router();
 
 const VALID_STATUSES = ['draft', 'sent', 'accepted', 'declined', 'expired'];
+const CATEGORIES     = ['web', 'led', 'it'];
 
 // ── GET /api/proposals/client/my — client: own proposals ─
 router.get('/client/my', requireAuth, async (req, res) => {
@@ -55,35 +56,33 @@ router.get('/client/:id', requireAuth, async (req, res) => {
 // ── GET /api/proposals — admin: all proposals ─────────
 router.get('/', requireAuth, requireAdmin, [
   query('status').optional().isIn(VALID_STATUSES),
+  query('category').optional().isIn(CATEGORIES),
   query('limit').optional().isInt({ min: 1, max: 100 }),
   query('offset').optional().isInt({ min: 0 }),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { status, limit = 50, offset = 0 } = req.query;
+  const { status, category, limit = 50, offset = 0 } = req.query;
 
   try {
-    let sql = `
+    const conds = [];
+    const vals  = [];
+    if (status)   { conds.push(`status = $${vals.length + 1}`);   vals.push(status); }
+    if (category) { conds.push(`category = $${vals.length + 1}`); vals.push(category); }
+    // The list query aliases proposals as p; the count query doesn't.
+    const whereP = conds.length ? ` WHERE ${conds.map(c => `p.${c}`).join(' AND ')}` : '';
+    const where  = conds.length ? ` WHERE ${conds.join(' AND ')}` : '';
+
+    const sql = `
       SELECT p.*, q.name AS lead_name, q.service AS lead_service
       FROM proposals p
-      LEFT JOIN quotes q ON q.id = p.lead_id`;
-    const vals = [];
-
-    if (status) {
-      sql += ` WHERE p.status = $${vals.length + 1}`;
-      vals.push(status);
-    }
-
-    sql += ` ORDER BY p.created_at DESC LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}`;
-    vals.push(Number(limit), Number(offset));
+      LEFT JOIN quotes q ON q.id = p.lead_id${whereP}
+      ORDER BY p.created_at DESC LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}`;
 
     const [rows, count] = await Promise.all([
-      pool.query(sql, vals),
-      pool.query(
-        `SELECT COUNT(*) FROM proposals${status ? ' WHERE status=$1' : ''}`,
-        status ? [status] : []
-      ),
+      pool.query(sql, [...vals, Number(limit), Number(offset)]),
+      pool.query(`SELECT COUNT(*) FROM proposals${where}`, vals),
     ]);
 
     res.json({ proposals: rows.rows, total: parseInt(count.rows[0].count) });
@@ -169,6 +168,7 @@ router.post('/', requireAuth, requireAdmin, [
   body('notes').optional().trim(),
   body('discount').optional().isFloat({ min: 0 }),
   body('tax_rate').optional().isFloat({ min: 0, max: 100 }),
+  body('category').optional().isIn(CATEGORIES),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -176,7 +176,7 @@ router.post('/', requireAuth, requireAdmin, [
   const {
     title, client_name, client_email, client_company,
     lead_id, valid_until, items, notes,
-    discount = 0, tax_rate = 0,
+    discount = 0, tax_rate = 0, category,
   } = req.body;
 
   const banking     = cleanBanking(req.body.banking_details);
@@ -195,11 +195,11 @@ router.post('/', requireAuth, requireAdmin, [
       `INSERT INTO proposals
          (quote_number, lead_id, client_name, client_email, client_company,
           title, valid_until, status, items, notes, banking_details,
-          subtotal, discount, tax_rate, total, created_by)
+          subtotal, discount, tax_rate, total, created_by, category)
        VALUES (
          'VTOS-Q-' || EXTRACT(YEAR FROM NOW())::int
                    || '-' || LPAD(nextval('proposal_number_seq')::text, 3, '0'),
-         $1,$2,$3,$4,$5,$6,'draft',$7,$8,$9,$10,$11,$12,$13,$14
+         $1,$2,$3,$4,$5,$6,'draft',$7,$8,$9,$10,$11,$12,$13,$14,$15
        )
        RETURNING *`,
       [
@@ -216,6 +216,7 @@ router.post('/', requireAuth, requireAdmin, [
         tax_rate,
         total.toFixed(2),
         req.user.id,
+        category || 'web',
       ]
     );
     res.status(201).json(result.rows[0]);
@@ -245,6 +246,7 @@ router.patch('/:id', requireAuth, requireAdmin, [
   body('client_email').optional().isEmail().normalizeEmail(),
   body('client_company').optional({ nullable: true }).trim(),
   body('lead_id').optional({ nullable: true }).isInt(),
+  body('category').optional().isIn(CATEGORIES),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -280,6 +282,7 @@ router.patch('/:id', requireAuth, requireAdmin, [
     if ('client_email'   in b) set('client_email',   b.client_email);
     if ('client_company' in b) set('client_company', b.client_company || null);
     if ('lead_id'        in b) set('lead_id',        b.lead_id || null);
+    if ('category'       in b) set('category',       b.category);
     if ('notes'          in b) set('notes',          b.notes || null);
     if ('banking_details' in b) {
       const banking = cleanBanking(b.banking_details);

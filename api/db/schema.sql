@@ -279,3 +279,296 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
 -- Partial index — only living users participate in lookups.
 CREATE INDEX IF NOT EXISTS idx_users_alive ON users(id) WHERE deleted_at IS NULL;
+
+-- ═════════════════════════════════════════════════════
+-- SERVICE DIVISIONS
+-- The business runs three divisions: 'web' (websites, apps,
+-- e-commerce), 'led' (LED screen installation, callouts, module
+-- repairs) and 'it' (PC repair, IT support). Every revenue-bearing
+-- record carries a category so the admin panel can filter and
+-- report per division. Existing rows default to 'web'.
+-- ═════════════════════════════════════════════════════
+
+ALTER TABLE quotes          ADD COLUMN IF NOT EXISTS category VARCHAR(10) NOT NULL DEFAULT 'web';
+ALTER TABLE proposals       ADD COLUMN IF NOT EXISTS category VARCHAR(10) NOT NULL DEFAULT 'web';
+ALTER TABLE invoices        ADD COLUMN IF NOT EXISTS category VARCHAR(10) NOT NULL DEFAULT 'web';
+ALTER TABLE portfolio_items ADD COLUMN IF NOT EXISTS category VARCHAR(10) NOT NULL DEFAULT 'web';
+
+CREATE INDEX IF NOT EXISTS idx_quotes_category    ON quotes(category);
+CREATE INDEX IF NOT EXISTS idx_proposals_category ON proposals(category);
+CREATE INDEX IF NOT EXISTS idx_invoices_category  ON invoices(category);
+
+-- Portfolio tag list gains 'led'. The original CHECK is column-generated
+-- (portfolio_items_tag_check), so it must be dropped and recreated rather
+-- than extended in place.
+DO $$ BEGIN
+  ALTER TABLE portfolio_items DROP CONSTRAINT IF EXISTS portfolio_items_tag_check;
+  ALTER TABLE portfolio_items ADD  CONSTRAINT portfolio_items_tag_check
+    CHECK (tag IN ('website', 'webapp', 'ecommerce', 'led', 'other'));
+EXCEPTION WHEN others THEN NULL; END $$;
+
+-- ── Service catalogue ────────────────────────────────
+-- Single source of truth for packages and add-ons. Replaces the pricing
+-- that was hardcoded in three places (public app.js QUOTE_PACKAGES,
+-- index.html radio buttons, admin SERVICE_TEMPLATES). Adding a service
+-- or changing a price is now a row edit, not a deploy.
+CREATE TABLE IF NOT EXISTS service_catalog (
+  id             SERIAL PRIMARY KEY,
+  category       VARCHAR(10)   NOT NULL CHECK (category IN ('web', 'led', 'it')),
+  kind           VARCHAR(10)   NOT NULL CHECK (kind IN ('package', 'addon')),
+  key            VARCHAR(60)   NOT NULL UNIQUE,
+  name           VARCHAR(200)  NOT NULL,
+  description    TEXT,
+  base_price     NUMERIC(12,2) NOT NULL DEFAULT 0,
+  unit           VARCHAR(20)   NOT NULL DEFAULT 'project'
+                 CHECK (unit IN ('project','hour','module','sqm','month','callout','item')),
+  template_items JSONB,        -- line-item bundle for the Quote/Invoice Builder
+  note           VARCHAR(200),
+  sort_order     INT           NOT NULL DEFAULT 0,
+  is_active      BOOLEAN       NOT NULL DEFAULT true,
+  created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_catalog_category ON service_catalog(category, kind, sort_order);
+
+DO $$ BEGIN
+  CREATE TRIGGER trg_catalog_updated_at
+    BEFORE UPDATE ON service_catalog
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Seed: ON CONFLICT DO NOTHING so admin price edits are never overwritten
+-- by a re-run of this migration.
+INSERT INTO service_catalog (category, kind, key, name, base_price, unit, note, sort_order) VALUES
+  ('web','package','starter',      'Starter Website',           3000,  'project', NULL, 10),
+  ('web','package','professional', 'Professional Website',      6500,  'project', NULL, 20),
+  ('web','package','webapp',       'Web Application / Portal',  9999,  'project', NULL, 30),
+  ('web','package','ecommerce',    'E-Commerce Store',          13999, 'project', NULL, 40),
+  ('web','package','custom',       'Custom / Enterprise',       0,     'project', 'Free consultation — no obligation', 90),
+  ('it', 'package','repair',       'PC Repair / Hardware',      350,   'item',    'Diagnostic fee — credited to repair cost', 10),
+  ('it', 'package','it-support',   'IT Support (per hour)',     450,   'hour',    NULL, 20),
+  ('led','package','led-install',  'LED Screen Installation',   0,     'project', 'Quoted per site survey', 10),
+  ('led','package','led-callout',  'LED Callout / On-Site Service', 2000, 'callout', 'Greater Cape Town or within a 30km radius', 20),
+  ('led','package','led-repair',   'LED Module Repair',         400,   'module',  'Per module — evaluated before repair', 30),
+  ('led','package','led-maintenance','LED Maintenance Plan',    0,     'month',   'Quoted per screen', 40)
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO service_catalog (category, kind, key, name, base_price, unit, note, sort_order) VALUES
+  ('web','addon','logo',        'Logo & Brand Design',                1499, 'project', NULL, 10),
+  ('web','addon','domain',      'Domain Registration (1 yr)',         299,  'project', NULL, 20),
+  ('web','addon','hosting',     'Hosting Setup',                      499,  'project', NULL, 30),
+  ('web','addon','email-host',  'Professional Email (1 yr, 10 accs)', 1200, 'project', NULL, 40),
+  ('web','addon','seo',         'SEO Kickstart Package (3 months)',   2499, 'project', NULL, 50),
+  ('web','addon','gmb',         'Google My Business Setup',           499,  'project', NULL, 60),
+  ('web','addon','whatsapp',    'WhatsApp Chat Widget',               699,  'project', NULL, 70),
+  ('web','addon','maintenance', 'Monthly Maintenance Plan',           499,  'month',   '/mo', 80),
+  ('web','addon','payment-gw',  'Payment Gateway Integration',        1499, 'project', NULL, 90),
+  ('web','addon','extra-pages', 'Extra Pages (per 3)',                799,  'project', NULL, 100),
+  ('web','addon','content',     'Content Writing (per page)',         399,  'project', NULL, 110),
+  ('web','addon','custom-addon','Custom Add-on (discuss below)',      0,    'project', NULL, 120),
+  ('led','addon','led-spares',  'Replacement Modules / Spares',       0,    'item',    'Quoted on assessment', 10),
+  ('led','addon','led-afterhours','After-Hours / Weekend Attendance', 0,    'callout', 'Quoted per job', 20),
+  ('led','addon','led-travel',  'Travel Beyond 30km Radius',          0,    'project', 'Quoted per km beyond the service area', 30)
+ON CONFLICT (key) DO NOTHING;
+
+-- Line-item bundles used by the Quote/Invoice Builder "Quick Templates".
+-- Only fills rows that have none, so admin edits are never clobbered.
+UPDATE service_catalog SET template_items = v.items FROM (VALUES
+  ('starter', '[{"desc":"Website Design & Wireframing (up to 5 pages)","qty":1,"price":1400},
+                {"desc":"Responsive Frontend Development","qty":1,"price":1200},
+                {"desc":"Contact Form Integration","qty":1,"price":200},
+                {"desc":"Basic SEO Setup","qty":1,"price":150},
+                {"desc":"Social Media Links & Icons","qty":1,"price":50}]'::jsonb),
+  ('professional', '[{"desc":"UI/UX Design & Wireframing (up to 8 pages)","qty":1,"price":2200},
+                {"desc":"Responsive Frontend Development","qty":1,"price":2000},
+                {"desc":"Blog / News System","qty":1,"price":700},
+                {"desc":"Image Gallery","qty":1,"price":400},
+                {"desc":"WhatsApp Chat & Social Integration","qty":1,"price":400},
+                {"desc":"Advanced SEO Setup & Sitemap","qty":1,"price":500},
+                {"desc":"Testing & Launch","qty":1,"price":300}]'::jsonb),
+  ('webapp', '[{"desc":"System Architecture & Database Design","qty":1,"price":2000},
+                {"desc":"Backend API Development","qty":1,"price":3000},
+                {"desc":"User Authentication & Role Management","qty":1,"price":1500},
+                {"desc":"Frontend Dashboard / Client Portal","qty":1,"price":2000},
+                {"desc":"CRM / Booking / Inventory Module","qty":1,"price":1500},
+                {"desc":"Testing, Security Audit & Deployment","qty":1,"price":999}]'::jsonb),
+  ('ecommerce', '[{"desc":"Store Design & Branding","qty":1,"price":2500},
+                {"desc":"Product Catalogue & Management System","qty":1,"price":2000},
+                {"desc":"PayFast / Yoco Payment Gateway Integration","qty":1,"price":2500},
+                {"desc":"Shopping Cart & Checkout Flow","qty":1,"price":2000},
+                {"desc":"Order Management & Email Notifications","qty":1,"price":2000},
+                {"desc":"Customer Accounts & Wishlist","qty":1,"price":1500},
+                {"desc":"Testing & Launch","qty":1,"price":999}]'::jsonb),
+  ('repair', '[{"desc":"Diagnostic Assessment","qty":1,"price":350},
+                {"desc":"Parts & Labour","qty":1,"price":800},
+                {"desc":"Data Backup & Recovery","qty":1,"price":500},
+                {"desc":"OS Reinstall / Software Setup","qty":1,"price":300},
+                {"desc":"Quality Check & Testing","qty":1,"price":200}]'::jsonb),
+  ('it-support', '[{"desc":"On-site or Remote Assessment (per hour)","qty":2,"price":450},
+                {"desc":"Software Configuration & Updates","qty":1,"price":600},
+                {"desc":"Network Setup & Security","qty":1,"price":800},
+                {"desc":"Documentation & User Training","qty":1,"price":500}]'::jsonb),
+  ('led-install', '[{"desc":"Site Survey & Structural Assessment","qty":1,"price":0},
+                {"desc":"Mounting Structure & Rigging","qty":1,"price":0},
+                {"desc":"LED Cabinet Assembly & Mounting","qty":1,"price":0},
+                {"desc":"Power & Data Cabling","qty":1,"price":0},
+                {"desc":"Processor / Controller Configuration","qty":1,"price":0},
+                {"desc":"Commissioning, Calibration & Testing","qty":1,"price":0},
+                {"desc":"Handover & Operator Training","qty":1,"price":0}]'::jsonb),
+  ('led-callout', '[{"desc":"LED Callout Fee (Greater Cape Town / 30km radius)","qty":1,"price":2000},
+                {"desc":"On-Site Fault Diagnosis","qty":1,"price":0},
+                {"desc":"Parts & Replacement Modules","qty":1,"price":0}]'::jsonb),
+  ('led-repair', '[{"desc":"Module Evaluation & Fault Report","qty":1,"price":0},
+                {"desc":"LED Module Repair (per module)","qty":1,"price":400},
+                {"desc":"Testing & Quality Check","qty":1,"price":0},
+                {"desc":"Dispatch & Return Delivery","qty":1,"price":0}]'::jsonb),
+  ('led-maintenance', '[{"desc":"Scheduled Preventative Inspection","qty":1,"price":0},
+                {"desc":"Brightness & Colour Calibration","qty":1,"price":0},
+                {"desc":"Cleaning & Seal Check","qty":1,"price":0},
+                {"desc":"Condition Report","qty":1,"price":0}]'::jsonb)
+) AS v(k, items)
+WHERE service_catalog.key = v.k AND service_catalog.template_items IS NULL;
+
+-- ── LED screen register ──────────────────────────────
+-- Asset register of installed screens. Callouts and repairs link back to
+-- a screen so its full service history is visible in one place.
+CREATE TABLE IF NOT EXISTS led_screens (
+  id             SERIAL PRIMARY KEY,
+  client_id      INT           REFERENCES users(id) ON DELETE SET NULL,
+  client_name    VARCHAR(200)  NOT NULL,
+  site_name      VARCHAR(200),
+  site_address   TEXT,
+  screen_label   VARCHAR(200)  NOT NULL,   -- "Main facade", "Court-side ribbon"
+  pixel_pitch    NUMERIC(5,2),             -- 3.91, 10.00
+  width_m        NUMERIC(6,2),
+  height_m       NUMERIC(6,2),
+  module_count   INT,
+  cabinet_type   VARCHAR(120),
+  module_type    VARCHAR(120),
+  receiving_card VARCHAR(120),
+  processor      VARCHAR(120),
+  environment    VARCHAR(15)   NOT NULL DEFAULT 'indoor'
+                 CHECK (environment IN ('indoor', 'outdoor', 'semi_outdoor')),
+  installed_on   DATE,
+  warranty_until DATE,
+  notes          TEXT,
+  is_active      BOOLEAN       NOT NULL DEFAULT true,
+  created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_led_screens_client ON led_screens(client_id);
+CREATE INDEX IF NOT EXISTS idx_led_screens_active ON led_screens(is_active);
+
+DO $$ BEGIN
+  CREATE TRIGGER trg_led_screens_updated_at
+    BEFORE UPDATE ON led_screens
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- ── LED jobs ─────────────────────────────────────────
+-- Installations, callouts, module repairs and maintenance visits.
+-- client_id is nullable on purpose: most callouts arrive by phone from
+-- people who have no portal account, so contact details are free text.
+-- Status pipeline follows the repair process:
+--   evaluate → report back → repair → dispatch
+-- with scheduling/parts states shared by installs and callouts.
+CREATE TABLE IF NOT EXISTS led_jobs (
+  id                SERIAL PRIMARY KEY,
+  job_number        VARCHAR(30)  NOT NULL UNIQUE,
+  job_type          VARCHAR(20)  NOT NULL
+                    CHECK (job_type IN ('installation', 'callout', 'repair', 'maintenance')),
+  priority          VARCHAR(15)  NOT NULL DEFAULT 'standard'
+                    CHECK (priority IN ('standard', 'urgent', 'emergency')),
+  status            VARCHAR(20)  NOT NULL DEFAULT 'logged'
+                    CHECK (status IN (
+                      'logged',          -- captured (phone-in or web)
+                      'scheduled',       -- date set
+                      'evaluating',      -- on-site diagnosis / bench evaluation
+                      'reported',        -- findings reported back, awaiting client approval
+                      'awaiting_parts',
+                      'in_progress',     -- installing / repairing / on site
+                      'dispatched',      -- modules returned to client
+                      'completed',
+                      'invoiced',
+                      'cancelled'
+                    )),
+  -- Client / contact (phone-in jobs have no account)
+  client_id         INT          REFERENCES users(id) ON DELETE SET NULL,
+  contact_name      VARCHAR(200) NOT NULL,
+  contact_phone     VARCHAR(30),
+  contact_email     VARCHAR(255),
+  company           VARCHAR(200),
+  -- Where
+  screen_id         INT          REFERENCES led_screens(id) ON DELETE SET NULL,
+  site_address      TEXT,
+  site_notes        TEXT,                 -- access, working height, power
+  within_service_area BOOLEAN    NOT NULL DEFAULT true,
+  -- When / who
+  scheduled_for     TIMESTAMPTZ,
+  completed_at      TIMESTAMPTZ,
+  technician        VARCHAR(200),
+  -- Work
+  fault_description TEXT,
+  evaluation_notes  TEXT,                 -- findings from the evaluate step
+  work_performed    TEXT,
+  parts_used        JSONB,
+  modules_in        INT,
+  modules_repaired  INT,
+  modules_scrapped  INT,
+  labour_hours      NUMERIC(6,2),
+  travel_km         NUMERIC(7,2),
+  -- Billing links
+  quote_id          INT          REFERENCES proposals(id) ON DELETE SET NULL,
+  invoice_id        INT          REFERENCES invoices(id)  ON DELETE SET NULL,
+  admin_notes       TEXT,
+  created_by        INT          REFERENCES users(id) ON DELETE SET NULL,
+  created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_led_jobs_status    ON led_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_led_jobs_type      ON led_jobs(job_type);
+CREATE INDEX IF NOT EXISTS idx_led_jobs_created   ON led_jobs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_led_jobs_screen    ON led_jobs(screen_id);
+CREATE INDEX IF NOT EXISTS idx_led_jobs_client    ON led_jobs(client_id);
+CREATE INDEX IF NOT EXISTS idx_led_jobs_scheduled ON led_jobs(scheduled_for);
+
+DO $$ BEGIN
+  CREATE TRIGGER trg_led_jobs_updated_at
+    BEFORE UPDATE ON led_jobs
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Atomic job-number sequence — same pattern as proposals/invoices.
+-- Format: VTOS-LED-YYYY-NNN, globally sequential.
+CREATE SEQUENCE IF NOT EXISTS led_job_number_seq;
+
+DO $$
+DECLARE
+  max_num int;
+BEGIN
+  SELECT COALESCE(MAX(SUBSTRING(job_number FROM 'VTOS-LED-\d{4}-(\d+)')::int), 0)
+    INTO max_num
+    FROM led_jobs;
+  IF max_num > 0 THEN
+    PERFORM setval('led_job_number_seq', max_num, true);
+  ELSE
+    PERFORM setval('led_job_number_seq', 1, false);
+  END IF;
+END $$;
+
+-- ── LED rate card ────────────────────────────────────
+-- Lives in app_settings so rates are editable from the admin panel
+-- without a deploy. Seeded once; admin edits persist.
+INSERT INTO app_settings (key, value) VALUES (
+  'led_rates',
+  '{"callout_fee": 2000,
+    "module_repair_price": 400,
+    "service_area": "Greater Cape Town — or within a 30km radius",
+    "service_radius_km": 30,
+    "hourly_rate": null,
+    "travel_per_km": null,
+    "after_hours_multiplier": null}'::jsonb
+) ON CONFLICT (key) DO NOTHING;

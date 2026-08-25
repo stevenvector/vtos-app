@@ -647,6 +647,17 @@ select option { background: var(--surface); }
 .badge-overdue   { background: rgba(255,80,80,.1); color: #ff8080; border: 1px solid rgba(255,80,80,.3); }
 .badge-cancelled { background: rgba(255,255,255,.05); color: var(--muted); border: 1px solid var(--border); }
 
+/* LED job pipeline: evaluate → report back → repair → dispatch */
+.badge-logged         { background: rgba(255,255,255,.06); color: var(--muted); border: 1px solid var(--border); }
+.badge-scheduled      { background: var(--blue-dim); color: #4FC3F7; border: 1px solid rgba(30,111,217,.3); }
+.badge-evaluating     { background: rgba(255,193,7,.12); color: #ffc94d; border: 1px solid rgba(255,193,7,.32); }
+.badge-reported       { background: rgba(168,85,247,.14); color: #d8b4fe; border: 1px solid rgba(168,85,247,.35); }
+.badge-awaiting_parts { background: rgba(255,145,0,.12); color: #ffb066; border: 1px solid rgba(255,145,0,.32); }
+.badge-in_progress    { background: rgba(30,111,217,.18); color: #7fc4ff; border: 1px solid rgba(30,111,217,.35); }
+.badge-dispatched     { background: rgba(57,255,20,.12); color: #b6ffb6; border: 1px solid rgba(57,255,20,.3); }
+.badge-completed      { background: rgba(57,255,20,.15); color: #9fff9f; border: 1px solid rgba(57,255,20,.4); }
+.badge-invoiced       { background: rgba(57,255,20,.1); color: #7de07d; border: 1px solid rgba(57,255,20,.28); }
+
 /* ── Line items table (inside proposal modal) ────── */
 .li-table { width: 100%; border-collapse: collapse; margin-bottom: .75rem; }
 .li-table th {
