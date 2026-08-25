@@ -977,3 +977,28 @@ select option { background: var(--surface); }
   border-radius: 50%;
   animation: spin .7s linear infinite;
 }
+
+/* ── Report / work-proposal builder blocks ───────── */
+.doc-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: .75rem;
+  margin-bottom: .75rem;
+}
+.doc-block-head {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+  margin-bottom: .5rem;
+}
+.doc-block-head input { font-weight: 600; }
+.doc-block-x {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 1rem; padding: .2rem .5rem;
+  border-radius: 6px; flex-shrink: 0; line-height: 1;
+}
+.doc-block-x:hover { color: #ff8080; background: rgba(255,80,80,.08); }
+.doc-block textarea, .doc-block input { background: var(--bg); }
+
+.badge-final { background: rgba(57,255,20,.15); color: #9fff9f; border: 1px solid rgba(57,255,20,.4); }

@@ -16,6 +16,8 @@ const proposalRoutes  = require('./routes/proposals');
 const invoiceRoutes   = require('./routes/invoices');
 const serviceRoutes   = require('./routes/services');
 const ledRoutes       = require('./routes/led');
+const reportRoutes    = require('./routes/reports');
+const workPropRoutes  = require('./routes/workProposals');
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
@@ -97,6 +99,8 @@ app.use('/api/proposals', proposalRoutes);
 app.use('/api/invoices',  invoiceRoutes);
 app.use('/api/services',  serviceRoutes);
 app.use('/api/led',       ledRoutes);
+app.use('/api/reports',   reportRoutes);
+app.use('/api/work-proposals', workPropRoutes);
 
 // ── Health check ──────────────────────────────────────
 app.get('/api/health', (req, res) => {
