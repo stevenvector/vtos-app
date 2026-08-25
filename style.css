@@ -885,6 +885,47 @@ body {
 .ecom-tag   { background: rgba(57,255,20,.08); color: #8fff8f; }
 .led-tag    { background: linear-gradient(135deg, var(--blue-dim), var(--green-dim)); color: #7fd4ff; }
 
+/* ── Portfolio loading / fallback ─────────────────────
+   Shown only while /api/portfolio is in flight, or if it fails. Replaces
+   the old hardcoded sample projects, which looked like a real portfolio
+   with dead links to anyone who saw them. */
+.portfolio-skeleton {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  min-height: 280px;
+  overflow: hidden;
+  position: relative;
+}
+.portfolio-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.04), transparent);
+  transform: translateX(-100%);
+  animation: portfolio-shimmer 1.4s infinite;
+}
+@keyframes portfolio-shimmer { to { transform: translateX(100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .portfolio-skeleton::after { animation: none; }
+}
+
+.portfolio-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .6rem;
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.portfolio-empty p { color: var(--muted); font-size: .9rem; margin: 0; }
+
 .portfolio-info h4 { font-size: 1rem; font-weight: 600; margin-bottom: .4rem; }
 .portfolio-info p  { color: var(--muted); font-size: .85rem; margin-bottom: .75rem; }
 

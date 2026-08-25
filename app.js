@@ -427,17 +427,38 @@ async function loadPortfolioItems() {
   const grid = document.getElementById('portfolioGrid');
   if (!grid) return;
 
+  // Loading skeletons and the fallback message are mutually exclusive with
+  // real cards. Whatever happens below, the visitor never sees a project
+  // that doesn't exist.
+  const clearSkeletons = () =>
+    grid.querySelectorAll('[data-portfolio-skeleton]').forEach(el => el.remove());
+
+  const showFallback = (msg) => {
+    clearSkeletons();
+    const box = document.getElementById('portfolioEmpty');
+    const txt = document.getElementById('portfolioEmptyMsg');
+    if (txt) txt.textContent = msg;
+    if (box) box.classList.remove('hidden');
+  };
+
   try {
-    const res   = await apiFetch('/portfolio');
-    if (!res.ok) return; // keep placeholder cards on failure
+    const res = await apiFetch('/portfolio');
+    if (!res.ok) {
+      showFallback('Our work isn’t loading right now — please refresh, or ask us directly.');
+      return;
+    }
 
     const items = await res.json();
-    if (!items.length) return;
+    if (!items.length) {
+      showFallback('Recent projects are shared on request — get in touch and we’ll send examples.');
+      return;
+    }
 
-    // Replace placeholder cards with real data (keep the add card at end)
     const addCard = document.getElementById('portfolioAddCard');
 
-    // Remove existing placeholder items
+    // Drop the skeletons and any previously rendered cards
+    clearSkeletons();
+    document.getElementById('portfolioEmpty')?.classList.add('hidden');
     grid.querySelectorAll('.portfolio-item').forEach(el => el.remove());
 
     const tagClass = { website: '', webapp: 'webapp-tag', ecommerce: 'ecom-tag', led: 'led-tag', other: '' };
@@ -474,7 +495,9 @@ async function loadPortfolioItems() {
       grid.insertBefore(div, addCard);
       revealObserver.observe(div); // trigger scroll animation
     });
-  } catch { /* keep placeholder cards */ }
+  } catch {
+    showFallback('Our work isn’t loading right now — please refresh, or ask us directly.');
+  }
 }
 
 // ── Portfolio filter ──────────────────────────────────
